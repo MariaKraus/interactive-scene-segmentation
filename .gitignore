@@ -757,3 +757,6 @@ FodyWeavers.xsd
 # Additional files built by Visual Studio
 
 # End of https://www.toptal.com/developers/gitignore/api/pycharm,pycharm+all,visualstudio,visualstudiocode,python
+
+### .pth files - contain the model
+*.pth
