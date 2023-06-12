@@ -1,47 +1,34 @@
+import time
+
 import cv2
 
 # Global variables
+import numpy as np
+
+from interaction import *
+from segment_utils import segment_image, show_anns
+
 selection_type = "point"
 selected_points = []
 selected_rect = None
 start_point = None
 end_point = None
 drawing = False
+selected_masks = []
+mask_color = dict()
 
 # Mouse callback function
 def mouse_callback(event, x, y, flags, param):
     global selected_points, selected_rect, start_point, drawing, end_point
 
     if selection_type == "point":
-        if event == cv2.EVENT_LBUTTONDOWN:
-            selected_points.append((x, y))
-            print(f"Selected point: ({x}, {y})")
+        selected_mask, color = point_selection(event, selected_points, x, y, image, masks)
+        selected_masks.append(selected_mask)
+        mask_color[selected_mask] = color
 
     elif selection_type == "area":
         draw_rect(event, x, y, flags, param)
 
-def draw_rect(event, x, y, flags, param):
-    global x1, y1, drawing, radius, num, img, img2, end_point
-    if event == cv2.EVENT_LBUTTONDOWN:
-        drawing = True
-        x1, y1 = x, y
-        cv2.rectangle(img, (x1, y1), (x1, y1), (255, 0, 0), 1)
-
-    elif event == cv2.EVENT_MOUSEMOVE:
-        if drawing == True:
-            a, b = x, y
-            if a != x & b != y:
-                img = img2.copy()
-                end_point = (a, b)
-                cv2.rectangle(img, (x1, y1), end_point, (255, 0, 0), 1)
-
-    elif event == cv2.EVENT_LBUTTONUP:
-        drawing = False
-        end_point = (x, y)
-        cv2.rectangle(img, (x1, y1), end_point, (255, 0, 0), 1)
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        cv2.putText(img, '_'.join(['label', str(num)]), (x + 20, y + 20), font, 1, (200, 255, 155), 1, cv2.LINE_AA)
-        img2 = img.copy()
 
 # Function to handle menu selection
 def select_selection_type():
@@ -64,7 +51,10 @@ def select_selection_type():
 # Read image from user input
 image_path = input("Enter the path of the image: ")
 #  /Users/danielbosch/Downloads/tools.jpg
+# E:\Projects\interactive-scene-segmentation\test\desk.jpg
 image = cv2.imread(image_path)
+#convert to RGB
+image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
 # Create a named window and set mouse callback
 cv2.namedWindow("Image")
@@ -73,23 +63,22 @@ cv2.setMouseCallback("Image", mouse_callback)
 # Select the type of selection
 select_selection_type()
 
+start_time = time.time()
+masks = segment_image(image)
+end_time = time.time()
+print(f"image segmentation: {end_time - start_time} seconds")
+
+
 # Display the image
 while True:
-    if selection_type == "point":
-        # Draw selected points on the image
-        for point in selected_points:
-            cv2.circle(image, point, 3, (0, 0, 255), -1)
-    elif selection_type == "area" and selected_rect is not None:
-        temp_image = image.copy()
-        cv2.rectangle(temp_image, start_point, end_point, (0, 0, 255), 2)
-        cv2.imshow("Image", temp_image)
-
     cv2.imshow("Image", image)
-
     key = cv2.waitKey(1) & 0xFF
-
     if key == ord('q'):
         break
+
+    for mask in selected_masks:
+        image = np.dstack((image, mask_color[mask] * 0.35))
+
 
 # Cleanup
 cv2.destroyAllWindows()

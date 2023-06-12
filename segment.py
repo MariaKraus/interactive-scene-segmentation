@@ -2,6 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 import sys
+
+from segment_utils import segment_image
+
 sys.path.append("..")
 import argparse
 from segment_anything import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
@@ -23,33 +26,8 @@ def segment():
     plt.axis('off')
 
     # set the model, there are 3 models available on the SAM github page
-    sam_checkpoint = "trained_models/sam_vit_h_4b8939.pth"
-    model_type = "vit_h"
-
-    # set the device
-    device = "cuda"
-
-    # instantiate the model
-    sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
-    # run the model on cuda
-    sam.to(device=device)
-
-    # link that explains the configurations:
-    # https://github.com/facebookresearch/segment-anything/blob/9e1eb9fdbc4bca4cd0d948b8ae7fe505d9f4ebc7/segment_anything/automatic_mask_generator.py#L35
-    # This is what we want to change with the
-    mask_generator_ = SamAutomaticMaskGenerator(
-        model=sam,
-        points_per_side=32,
-        pred_iou_thresh=0.9,
-        stability_score_thresh=0.96,
-        crop_n_layers=1,
-        crop_n_points_downscale_factor=2,
-        min_mask_region_area=100,  # Requires open-cv to run post-processing
-    )
     start_time = time.time()
-
-    # create the masks for the image
-    masks = mask_generator_.generate(image)
+    masks = segment_image(image)
 
     print("--- %s seconds for segmentation ---" % (time.time() - start_time))
 
