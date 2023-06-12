@@ -4,17 +4,18 @@ import numpy as np
 
 def point_selection(event, selected_points, x, y, image, masks):
     selected_mask = None
-    if event == cv2.EVENT_LBUTTONDOWN:
-        selected_points.append((x, y))
-        print(f"Selected point: ({x}, {y})")
+    selected_points.append((x, y))
+    print(f"Selected point: ({x}, {y})")
 
-        for mask in masks:
-            if mask['segmentation'][y][x] == 1:
-                print(f"Mask: {mask}")
-                selected_mask = mask
-                break
+    for mask in masks:
+        if mask['segmentation'][y][x] == 1:
+            print(f"Mask: {mask}")
+            selected_mask = mask
+            break
 
     return selected_mask, np.random.random((1, 3)).tolist()[0]
+
+
 
 
 

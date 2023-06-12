@@ -22,12 +22,18 @@ def mouse_callback(event, x, y, flags, param):
     global selected_points, selected_rect, start_point, drawing, end_point
 
     if selection_type == "point":
-        selected_mask, color = point_selection(event, selected_points, x, y, image, masks)
-        selected_masks.append(selected_mask)
-        mask_color[selected_mask] = color
+        if event == cv2.EVENT_LBUTTONDOWN:
+            selected_mask, color = point_selection(event, selected_points, x, y, image, masks)
+            print(type(selected_mask))
+            selected_mask['color'] = color
+            selected_masks.append(selected_mask)
 
     elif selection_type == "area":
         draw_rect(event, x, y, flags, param)
+
+    if event == ord('q'):
+        cv2.destroyAllWindows()
+        exit(0)
 
 
 # Function to handle menu selection
@@ -71,13 +77,22 @@ print(f"image segmentation: {end_time - start_time} seconds")
 
 # Display the image
 while True:
+
     cv2.imshow("Image", image)
     key = cv2.waitKey(1) & 0xFF
+
     if key == ord('q'):
         break
 
-    for mask in selected_masks:
-        image = np.dstack((image, mask_color[mask] * 0.35))
+    if len(selected_masks) > 0:
+        for mask in selected_masks:
+            m = mask['segmentation']
+            img = np.ones((m.shape[0], m.shape[1], 3))
+            color_mask = np.array(mask['color'])
+            for i in range(3):
+                img[:, :, i] = color_mask[i]
+            cv2.imshow("Image", np.dstack((img, m * 0.35)))
+            cv2.waitKey(0)
 
 
 # Cleanup
