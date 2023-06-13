@@ -31,7 +31,7 @@ def segment_image(image):
     masks = mask_generator_.generate(image)
     return masks
 
-def show_anns(anns, image):
+def show_anns(image, anns):
     """
     Depicts the mask in various colors.
 
@@ -50,9 +50,8 @@ def show_anns(anns, image):
 
     for ann in sorted_anns:
         m = ann['segmentation']
-        print("m ", m)
         mask = image.copy()
-        color_mask = anns['color']
+        color_mask = ann['color']
         mask[m] = color_mask
         image = cv2.addWeighted(image, 0.5, mask, 0.5, 0)
     return image

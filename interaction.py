@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 
+selected_masks = []
 
 def point_selection(event, selected_points, x, y, image, masks):
     selected_mask = None
@@ -9,11 +10,15 @@ def point_selection(event, selected_points, x, y, image, masks):
 
     for mask in masks:
         if mask['segmentation'][y][x] == 1:
-            print(f"Mask: {mask}")
-            selected_mask = mask
+            if mask in selected_masks:
+                selected_masks.remove(mask)
+            else:
+                selected_mask = mask
+                selected_mask['color'] = list(np.random.choice(range(256), size=3))
+                selected_masks.append(selected_mask)
             break
 
-    return selected_mask, np.random.random((1, 3)).tolist()[0]
+    return selected_masks
 
 
 
