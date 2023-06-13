@@ -1,6 +1,9 @@
 import numpy as np
 from matplotlib import pyplot as plt
 from segment_anything import sam_model_registry, SamAutomaticMaskGenerator
+import cv2
+
+from interaction import point_selection
 
 
 def segment_image(image):
@@ -28,7 +31,7 @@ def segment_image(image):
     masks = mask_generator_.generate(image)
     return masks
 
-def show_anns(anns):
+def show_anns(anns, image):
     """
     Depicts the mask in various colors.
 
@@ -44,14 +47,13 @@ def show_anns(anns):
     if len(anns) == 0:
         return
     sorted_anns = sorted(anns, key=(lambda x: x['area']), reverse=True)
-    ax = plt.gca()
-    ax.set_autoscale_on(False)
-    polygons = []
-    color = []
+
     for ann in sorted_anns:
         m = ann['segmentation']
-        img = np.ones((m.shape[0], m.shape[1], 3))
-        color_mask = np.random.random((1, 3)).tolist()[0]
-        for i in range(3):
-            img[:, :, i] = color_mask[i]
-        ax.imshow(np.dstack((img, m * 0.35)))
+        print("m ", m)
+        mask = image.copy()
+        color_mask = anns['color']
+        mask[m] = color_mask
+        image = cv2.addWeighted(image, 0.5, mask, 0.5, 0)
+    return image
+
