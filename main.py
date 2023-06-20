@@ -16,11 +16,12 @@ drag_end = None
 drawing = False
 selected_masks = []
 mask_color = dict()
+polygon_closed = False
 
 
 # Mouse callback function
 def mouse_callback(event, x, y, flags, param):
-    global selected_points, selected_rect, drag_start, drawing, drag_end, selected_masks
+    global selected_points, selected_rect, drag_start, drawing, drag_end, selected_masks, polygon_closed
 
     if selection_type == "point":
         if event == cv2.EVENT_LBUTTONDOWN:
@@ -40,6 +41,22 @@ def mouse_callback(event, x, y, flags, param):
             drag_end = (x, y)
             selected_rect = (selected_rect[0], selected_rect[1], x - selected_rect[0], y - selected_rect[1])
 
+    elif selection_type == "polygon":
+        if event == cv2.EVENT_LBUTTONDOWN:
+            if polygon_closed is False:
+
+                if len(selected_points) > 2 and np.linalg.norm(np.array(selected_points[0]) - np.array((x, y))) < 25:
+                    new_point = selected_points[0]
+                    polygon_closed = True
+                else:
+                    new_point = (x, y)
+                selected_points.append(new_point)
+
+
+        if event == cv2.EVENT_RBUTTONDOWN:
+            selected_points.pop()
+            polygon_closed = False
+
     if event == ord('q'):
         cv2.destroyAllWindows()
         exit(0)
@@ -52,12 +69,17 @@ def select_selection_type():
         print("Select a selection type:")
         print("1. Point")
         print("2. Area")
+        print("3. Polygon")
         choice = input("Enter your choice (1/2): ")
         if choice == "1":
             selection_type = "point"
             break
         elif choice == "2":
             selection_type = "area"
+            break
+        elif choice == "3":
+            selection_type = "polygon"
+            print("Press Left Mouse Button to add a point. Press Right Mouse Button to remove a point.")
             break
         else:
             print("Invalid choice. Try again.\n")
@@ -89,9 +111,15 @@ print(f"image segmentation: {end_time - start_time} seconds")
 while True:
     image = baseImage.copy()
 
+    if selection_type == "polygon":
+        for i in range(len(selected_points) - 1):
+            cv2.line(image, selected_points[i], selected_points[i + 1], (0, 255, 0), 2)
+
+
     if selection_type == "area" and drawing is True:
         print(drag_start, drag_end)
         cv2.rectangle(image, drag_start, drag_end, (255, 0, 0), 2, )
+
 
     if len(selected_masks) == 0:
         cv2.imshow("Image", image)
