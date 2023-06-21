@@ -1,9 +1,12 @@
 import time
 
 import cv2
+import tkinter as tk
+from tkinter import messagebox
 
 # Global variables
 import numpy as np
+from PIL import Image, ImageTk
 
 from interaction import *
 from segment_utils import segment_image, show_anns
@@ -18,6 +21,16 @@ selected_masks = []
 mask_color = dict()
 polygon_closed = False
 
+
+global image
+
+def segment_finer(root):
+    print("segment finer")
+    root.destroy()
+
+def segment_coarser(root):
+    print("segment coarser")
+    root.destroy()
 
 # Mouse callback function
 def mouse_callback(event, x, y, flags, param):
@@ -60,6 +73,17 @@ def mouse_callback(event, x, y, flags, param):
         cv2.destroyAllWindows()
         exit(0)
 
+    if event == cv2.EVENT_RBUTTONDOWN:  # Right mouse button click event
+        menu = tk.Tk()
+        menu.title("Menu")
+        menu.rowconfigure(0, minsize=50, weight=1)
+        menu.columnconfigure([0, 1], minsize=50, weight=1)
+        btn_finer = tk.Button(master=menu, text="segment finer", command=lambda:segment_finer(menu))
+        btn_finer.grid(row=0, column=0, sticky="nsew")
+        btn_coarser = tk.Button(master=menu, text="segment coarser", command=lambda:segment_coarser(menu))
+        btn_coarser.grid(row=0, column=1, sticky="nsew")
+        menu.attributes('-topmost', True)
+        menu.mainloop()
 
 # Function to handle menu selection
 def select_selection_type():
@@ -88,14 +112,15 @@ def select_selection_type():
 image_path = input("Enter the path of the image: ")
 #  /Users/danielbosch/Downloads/tools.jpg
 # E:\Projects\interactive-scene-segmentation\test\desk.jpg
+#/home/maria/interactive-scene-segmentation/test/desk.jpg
 image = cv2.imread(image_path)
 baseImage = image.copy()
-# convert to RGB
 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
 # Create a named window and set mouse callback
 cv2.namedWindow("Image")
 cv2.setMouseCallback("Image", mouse_callback)
+
 
 # Select the type of selection
 select_selection_type()
