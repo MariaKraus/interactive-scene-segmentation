@@ -31,7 +31,6 @@ def mouse_callback(event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
             drawing = True
             drag_start = (x, y)
-            print(drag_start)
             selected_rect = (x, y, 0, 0)
         if drawing is True:
             drag_end = (x, y)
@@ -117,7 +116,6 @@ while True:
 
 
     if selection_type == "area" and drawing is True:
-        print(drag_start, drag_end)
         cv2.rectangle(image, drag_start, drag_end, (255, 0, 0), 2, )
 
 
