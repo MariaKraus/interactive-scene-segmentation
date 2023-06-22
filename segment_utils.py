@@ -31,6 +31,17 @@ def segment_image(image):
     masks = mask_generator_.generate(image)
     return masks
 
+
+def segment_finer(root):
+    print("segment finer")
+    root.destroy()
+
+
+def segment_coarser(root):
+    print("segment coarser")
+    root.destroy()
+
+
 def show_anns(image, anns):
     """
     Depicts the mask in various colors.

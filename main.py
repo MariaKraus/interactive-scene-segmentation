@@ -1,12 +1,15 @@
 import time
 
 import cv2
+import tkinter as tk
+from tkinter import messagebox
 
 # Global variables
 import numpy as np
+from PIL import Image, ImageTk
 
 from interaction import *
-from segment_utils import segment_image, show_anns
+from segment_utils import segment_image, show_anns, segment_coarser, segment_finer
 
 selection_type = "point"
 selected_points = []
@@ -18,6 +21,7 @@ selected_masks = []
 mask_color = dict()
 polygon_closed = False
 
+global image
 
 # Mouse callback function
 def mouse_callback(event, x, y, flags, param):
@@ -40,6 +44,7 @@ def mouse_callback(event, x, y, flags, param):
             drag_end = (x, y)
             selected_rect = (selected_rect[0], selected_rect[1], x - selected_rect[0], y - selected_rect[1])
 
+
     elif selection_type == "polygon":
         if event == cv2.EVENT_LBUTTONDOWN:
             if polygon_closed is False:
@@ -51,10 +56,26 @@ def mouse_callback(event, x, y, flags, param):
                     new_point = (x, y)
                 selected_points.append(new_point)
 
-
         if event == cv2.EVENT_RBUTTONDOWN:
             selected_points.pop()
             polygon_closed = False
+
+
+
+
+# Function to handle keyboard events
+def keyboard_callback(event):
+    if event == 13:  # Check if the key is the "Enter" key (key code 13)
+        menu = tk.Tk()
+        menu.title("Menu")
+        menu.rowconfigure(0, minsize=50, weight=1)
+        menu.columnconfigure([0, 1], minsize=50, weight=1)
+        btn_finer = tk.Button(master=menu, text="segment finer", command=lambda: segment_finer(menu))
+        btn_finer.grid(row=0, column=0, sticky="nsew")
+        btn_coarser = tk.Button(master=menu, text="segment coarser", command=lambda: segment_coarser(menu))
+        btn_coarser.grid(row=0, column=1, sticky="nsew")
+        menu.attributes('-topmost', True)
+        menu.mainloop()
 
     if event == ord('q'):
         cv2.destroyAllWindows()
@@ -69,7 +90,7 @@ def select_selection_type():
         print("1. Point")
         print("2. Area")
         print("3. Polygon")
-        choice = input("Enter your choice (1/2): ")
+        choice = input("Enter your choice (1/2/3): ")
         if choice == "1":
             selection_type = "point"
             break
@@ -88,17 +109,17 @@ def select_selection_type():
 image_path = input("Enter the path of the image: ")
 #  /Users/danielbosch/Downloads/tools.jpg
 # E:\Projects\interactive-scene-segmentation\test\desk.jpg
+# /home/maria/interactive-scene-segmentation/test/desk.jpg
 image = cv2.imread(image_path)
 baseImage = image.copy()
-# convert to RGB
 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+# Select the type of selection
+select_selection_type()
 
 # Create a named window and set mouse callback
 cv2.namedWindow("Image")
 cv2.setMouseCallback("Image", mouse_callback)
-
-# Select the type of selection
-select_selection_type()
 
 start_time = time.time()
 # masks = segment_image(image)
@@ -114,22 +135,21 @@ while True:
         for i in range(len(selected_points) - 1):
             cv2.line(image, selected_points[i], selected_points[i + 1], (0, 255, 0), 2)
 
-
-    if selection_type == "area" and drawing is True:
+    if selection_type == "area":
         cv2.rectangle(image, drag_start, drag_end, (255, 0, 0), 2, )
-
 
     if len(selected_masks) == 0:
         cv2.imshow("Image", image)
 
+    # Wait for a key press
     key = cv2.waitKey(1) & 0xFF
-
-    if key == ord('q'):
-        break
+    if key != -1:  # Check if any key is pressed
+        keyboard_callback(key)  # Call the keyboard callback function
 
     if len(selected_masks) > 0:
         image = show_anns(image, selected_masks)
-        cv2.imshow("Image", image)
+
+    cv2.imshow("Image", image)
 
 # Cleanup
 cv2.destroyAllWindows()
