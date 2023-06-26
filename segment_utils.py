@@ -3,9 +3,6 @@ from matplotlib import pyplot as plt
 from segment_anything import sam_model_registry, SamAutomaticMaskGenerator
 import cv2
 
-from interaction import point_selection
-
-
 def segment_image(image):
     sam_checkpoint = "trained_models/sam_vit_h_4b8939.pth"
     model_type = "vit_h"
@@ -42,7 +39,7 @@ def segment_coarser(root):
     root.destroy()
 
 
-def show_anns(image, anns):
+def show_masks(image, masks):
     """
     Depicts the mask in various colors.
 
@@ -55,9 +52,9 @@ def show_anns(image, anns):
                 - stability_score : an additional measure of mask quality
                 - crop_box : the crop of the image used to generate this mask in XYWH format
     """
-    if len(anns) == 0:
+    if len(masks) == 0:
         return
-    sorted_anns = sorted(anns, key=(lambda x: x['area']), reverse=True)
+    sorted_anns = sorted(masks, key=(lambda x: x['area']), reverse=True)
 
     for ann in sorted_anns:
         m = ann['segmentation']
