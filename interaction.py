@@ -1,14 +1,7 @@
 import cv2
-import numpy as np
-import cv2
 import tkinter as tk
-from tkinter import messagebox
-
-
 import numpy as np
-from PIL import Image, ImageTk
 
-from segment_utils import segment_finer, segment_coarser
 
 drawing = False
 polygon_closed = False
@@ -83,15 +76,15 @@ def mouse_callback(event, x, y, flags, param):
 
 
 # Function to handle keyboard events
-def keyboard_callback(event):
+def keyboard_callback(event, model, image):
     if event == 13:  # Check if the key is the "Enter" key (key code 13)
         menu = tk.Tk()
         menu.title("Menu")
         menu.rowconfigure(0, minsize=50, weight=1)
         menu.columnconfigure([0, 1], minsize=50, weight=1)
-        btn_finer = tk.Button(master=menu, text="segment finer", command=lambda: segment_finer(menu))
+        btn_finer = tk.Button(master=menu, text="segment finer", command=lambda: model.segment_finer(menu, image))
         btn_finer.grid(row=0, column=0, sticky="nsew")
-        btn_coarser = tk.Button(master=menu, text="segment coarser", command=lambda: segment_coarser(menu))
+        btn_coarser = tk.Button(master=menu, text="segment coarser", command=lambda: model.segment_coarser(menu, image))
         btn_coarser.grid(row=0, column=1, sticky="nsew")
         menu.attributes('-topmost', True)
         menu.mainloop()

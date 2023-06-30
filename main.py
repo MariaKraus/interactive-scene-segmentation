@@ -1,6 +1,6 @@
 import time
 from interaction import *
-from segment_utils import segment_image, show_masks
+from segment_utils import SegmentAnything
 
 selection_type = "point"
 
@@ -28,7 +28,9 @@ cv2.namedWindow("Image")
 cv2.setMouseCallback("Image", mouse_callback, param=(selection_type,selected_points))
 
 start_time = time.time()
-masks = segment_image(image)
+
+sam = SegmentAnything(checkpoint="trained_models/sam_vit_h_4b8939.pth", model_type="vit_h", device="cuda")
+masks = sam.segment_image(image)
 masks = sorted(masks, key=lambda x: x['area'], reverse=False)
 end_time = time.time()
 print(f"image segmentation: {end_time - start_time} seconds")
@@ -56,10 +58,10 @@ while True:
     # Wait for a key press
     key = cv2.waitKey(1) & 0xFF
     if key != -1:  # Check if any key is pressed
-        keyboard_callback(key)  # Call the keyboard callback function
+        keyboard_callback(key, sam, image)  # Call the keyboard callback function
 
     if len(selected_masks) > 0:
-        image = show_masks(image, selected_masks)
+        image = sam.show_masks(image, selected_masks)
 
     cv2.imshow("Image", image)
 
