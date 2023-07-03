@@ -86,6 +86,7 @@ def get_selected_area_pixels(param):
     bounding_box = []
 
     if selection_type == "point":
+        #TODO: fix multiple mask selection
         for mask in selected_masks:
             converted_mask = np.array(mask['segmentation'], dtype=np.uint8)
             converted_mask = np.repeat(converted_mask[:, :, np.newaxis], 3, axis=2)
