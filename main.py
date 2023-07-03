@@ -56,7 +56,7 @@ while True:
     # Wait for a key press
     key = cv2.waitKey(1) & 0xFF
     if key != -1:  # Check if any key is pressed
-        keyboard_callback(key)  # Call the keyboard callback function
+        keyboard_callback(key, param=(baseImage, selection_type, selected_points, selected_masks))  # Call the keyboard callback function
 
     if len(selected_masks) > 0:
         image = show_masks(image, selected_masks)
