@@ -32,12 +32,14 @@ start_time = time.time()
 sam = SegmentAnything(checkpoint="trained_models/sam_vit_h_4b8939.pth", model_type="vit_h", device="cuda")
 masks = sam.segment_image(image)
 masks = sorted(masks, key=lambda x: x['area'], reverse=False)
+masked_image = sam.show_masks(image, masks)
+
 end_time = time.time()
 print(f"image segmentation: {end_time - start_time} seconds")
 
 # Display the image
 while True:
-    image = baseImage.copy()
+    image = masked_image.copy() #baseImage.copy()
 
     # draw the user selections on the canvas
     if selection_type == "point":
