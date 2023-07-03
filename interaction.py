@@ -1,18 +1,14 @@
 import cv2
-import numpy as np
-import cv2
 import tkinter as tk
-from tkinter import messagebox
 
 import numpy as np
-from PIL import Image, ImageTk
 
 drawing = False
 polygon_closed = False
 
+
 # Function to handle menu selection
 def select_selection_type():
-
     while True:
         print("Select a selection type:")
         print("1. Point")
@@ -21,16 +17,14 @@ def select_selection_type():
         choice = input("Enter your choice (1/2/3): ")
         if choice == "1":
             return "point"
-            break
         elif choice == "2":
             return "area"
-            break
         elif choice == "3":
             print("Press Left Mouse Button to add a point. Press Right Mouse Button to remove a point.")
             return "polygon"
-            break
         else:
             print("Invalid choice. Try again.\n")
+
 
 # Mouse callback function
 def mouse_callback(event, x, y, flags, param):
@@ -39,7 +33,7 @@ def mouse_callback(event, x, y, flags, param):
 
     if selection_type == "point":
         if event == cv2.EVENT_LBUTTONDOWN:
-            selected_points.append((x,y))
+            selected_points.append((x, y))
             return selected_points
         if event == cv2.EVENT_RBUTTONDOWN:
             selected_points.pop()
@@ -48,17 +42,16 @@ def mouse_callback(event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
             selected_points.clear()
             drawing = True
-            selected_points.append((x,y))
+            selected_points.append((x, y))
             return selected_points
         if event == cv2.EVENT_LBUTTONUP:
             if drawing is True:
-                selected_points.append((x,y))
+                selected_points.append((x, y))
                 drawing = False
                 return selected_points
         if drawing is True:
-            selected_points.append((x,y))
+            selected_points.append((x, y))
             return selected_points
-
 
     elif selection_type == "polygon":
         global polygon_closed
@@ -76,8 +69,6 @@ def mouse_callback(event, x, y, flags, param):
             polygon_closed = False
 
 
-
-
 # Function to handle keyboard events
 def get_selected_area_pixels(param):
     base_image, selection_type, selected_points, selected_masks, _, _ = param
@@ -86,14 +77,14 @@ def get_selected_area_pixels(param):
     bounding_box = []
 
     if selection_type == "point":
-        #TODO: fix multiple mask selection
+        # TODO: fix multiple mask selection
         for mask in selected_masks:
             converted_mask = np.array(mask['segmentation'], dtype=np.uint8)
             converted_mask = np.repeat(converted_mask[:, :, np.newaxis], 3, axis=2)
             print(converted_mask.shape)
             selected_area = np.where(converted_mask > 0, selected_area, [0, 0, 0])
 
-            #convert xywh to xyxy
+            # convert xywh to xyxy
             bounding_box.append([mask['bbox'][0], mask['bbox'][1]])
             bounding_box.append([mask['bbox'][0] + mask['bbox'][2], mask['bbox'][1] + mask['bbox'][3]])
 
@@ -104,7 +95,6 @@ def get_selected_area_pixels(param):
         end_point = selected_points[-1]
         bounding_box = [start_point, end_point]
 
-
     if selection_type == "polygon":
         polygon_points = np.array(selected_points)
         mask = np.zeros((base_image.shape[0], base_image.shape[1], 3), dtype=np.uint8)
@@ -112,7 +102,7 @@ def get_selected_area_pixels(param):
         selected_area = np.where(mask > 0, selected_area, [0, 0, 0])
         bounding_box = [np.min(polygon_points, axis=0), np.max(polygon_points, axis=0)]
 
-    #extract region of interest based on bounding box
+    # extract region of interest based on bounding box
     p1, p2 = bounding_box
 
     cv2.imwrite("selected_area_raw.png", selected_area)
@@ -120,7 +110,6 @@ def get_selected_area_pixels(param):
     cv2.imwrite("selected_area_scaled.png", selected_area)
     selected_area = np.array(selected_area, dtype=np.uint8)
     return selected_area
-
 
 
 def keyboard_callback(event, param):
@@ -131,9 +120,11 @@ def keyboard_callback(event, param):
         menu.title("Menu")
         menu.rowconfigure(0, minsize=50, weight=1)
         menu.columnconfigure([0, 1], minsize=50, weight=1)
-        btn_finer = tk.Button(master=menu, text="segment finer", command=lambda: model.segment_finer(menu, selected_area_image))
+        btn_finer = tk.Button(master=menu, text="segment finer",
+                              command=lambda: model.segment_finer(menu, selected_area_image))
         btn_finer.grid(row=0, column=0, sticky="nsew")
-        btn_coarser = tk.Button(master=menu, text="segment coarser", command=lambda: model.segment_coarser(menu, selected_area_image))
+        btn_coarser = tk.Button(master=menu, text="segment coarser",
+                                command=lambda: model.segment_coarser(menu, selected_area_image))
         btn_coarser.grid(row=0, column=1, sticky="nsew")
         menu.attributes('-topmost', True)
         menu.mainloop()
@@ -161,7 +152,7 @@ def select_masks(x, y, masks, selected_masks):
     for mask in masks:
         if mask['segmentation'][y][x] == 1:
             if is_dictionary_in_list(mask, selected_masks):
-                remove_mask(mask,selected_masks)
+                remove_mask(mask, selected_masks)
             else:
                 selected_mask = mask
                 # if there is already a color, keep the old one
@@ -172,4 +163,3 @@ def select_masks(x, y, masks, selected_masks):
                 selected_masks.append(selected_mask)
             break
     return selected_masks
-
