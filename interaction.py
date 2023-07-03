@@ -12,9 +12,9 @@ from segment_utils import segment_finer, segment_coarser
 drawing = False
 polygon_closed = False
 
-
 # Function to handle menu selection
 def select_selection_type():
+
     while True:
         print("Select a selection type:")
         print("1. Point")
@@ -34,7 +34,6 @@ def select_selection_type():
         else:
             print("Invalid choice. Try again.\n")
 
-
 # Mouse callback function
 def mouse_callback(event, x, y, flags, param):
     (selection_type, selected_points) = param
@@ -42,7 +41,7 @@ def mouse_callback(event, x, y, flags, param):
 
     if selection_type == "point":
         if event == cv2.EVENT_LBUTTONDOWN:
-            selected_points.append((x, y))
+            selected_points.append((x,y))
             return selected_points
         if event == cv2.EVENT_RBUTTONDOWN:
             selected_points.pop()
@@ -51,16 +50,18 @@ def mouse_callback(event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
             selected_points.clear()
             drawing = True
-            selected_points.append((x, y))
+            selected_points.append((x,y))
             return selected_points
         if event == cv2.EVENT_LBUTTONUP:
             if drawing is True:
-                selected_points.append((x, y))
+                selected_points.append((x,y))
                 drawing = False
                 return selected_points
         if drawing is True:
-            selected_points.append((x, y))
+            selected_points.append((x,y))
+            print(selected_points)
             return selected_points
+
 
     elif selection_type == "polygon":
         global polygon_closed
@@ -76,6 +77,8 @@ def mouse_callback(event, x, y, flags, param):
         if event == cv2.EVENT_RBUTTONDOWN:
             selected_points.pop()
             polygon_closed = False
+
+
 
 
 # Function to handle keyboard events
@@ -122,16 +125,16 @@ def get_selected_area_pixels(param):
 
 
 
-def keyboard_callback(event, param):
+def keyboard_callback(event, param, model, image):
     if event == 13:  # Check if the key is the "Enter" key (key code 13)
         selected_area_image = get_selected_area_pixels(param)
         menu = tk.Tk()
         menu.title("Menu")
         menu.rowconfigure(0, minsize=50, weight=1)
         menu.columnconfigure([0, 1], minsize=50, weight=1)
-        btn_finer = tk.Button(master=menu, text="segment finer", command=lambda: segment_finer(menu))
+        btn_finer = tk.Button(master=menu, text="segment finer", command=lambda: model.segment_finer(menu, image))
         btn_finer.grid(row=0, column=0, sticky="nsew")
-        btn_coarser = tk.Button(master=menu, text="segment coarser", command=lambda: segment_coarser(menu))
+        btn_coarser = tk.Button(master=menu, text="segment coarser", command=lambda: model.segment_coarser(menu, image))
         btn_coarser.grid(row=0, column=1, sticky="nsew")
         menu.attributes('-topmost', True)
         menu.mainloop()
@@ -159,7 +162,7 @@ def select_masks(x, y, masks, selected_masks):
     for mask in masks:
         if mask['segmentation'][y][x] == 1:
             if is_dictionary_in_list(mask, selected_masks):
-                remove_mask(mask, selected_masks)
+                remove_mask(mask,selected_masks)
             else:
                 selected_mask = mask
                 # if there is already a color, keep the old one
@@ -170,3 +173,4 @@ def select_masks(x, y, masks, selected_masks):
                 selected_masks.append(selected_mask)
             break
     return selected_masks
+
