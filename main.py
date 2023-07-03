@@ -13,7 +13,7 @@ image_path = input("Enter the path of the image: ")
 # /home/maria/interactive-scene-segmentation/test/desk.jpg
 
 image = cv2.imread(image_path)
-baseImage = image.copy()
+base_image = image.copy()
 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
 # Select the type of selection
@@ -60,7 +60,7 @@ while True:
     # Wait for a key press
     key = cv2.waitKey(1) & 0xFF
     if key != -1:  # Check if any key is pressed
-        keyboard_callback(key, param=(baseImage, selection_type, selected_points, selected_masks), sam, image)  # Call the keyboard callback function
+        keyboard_callback(key, param=(base_image.copy(), selection_type, selected_points, selected_masks, sam, image))  # Call the keyboard callback function
 
     if len(selected_masks) > 0:
         image = sam.show_masks(image, selected_masks)
