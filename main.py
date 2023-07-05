@@ -10,11 +10,11 @@ image_path = input("Enter the path of the image: ")
 
 #  /Users/danielbosch/Downloads/tools.jpg
 # E:\Projects\interactive-scene-segmentation\test\desk.jpg
-# /home/maria/interactive-scene-segmentation/test/desk.jpg
+#/home/maria/interactive-scene-segmentation/test/desk.jpg
 
 image = cv2.imread(image_path)
 base_image = image.copy()
-image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
 
 # Select the type of selection
 selection_type = select_selection_type()
@@ -24,7 +24,7 @@ selected_points = []
 selected_masks = []
 
 # Create a named window and set mouse callback
-cv2.namedWindow("Image")
+cv2.namedWindow("Image", cv2.WINDOW_NORMAL)
 cv2.setMouseCallback("Image", mouse_callback, param=(selection_type,selected_points))
 
 start_time = time.time()
@@ -39,7 +39,7 @@ print(f"image segmentation: {end_time - start_time} seconds")
 
 # Display the image
 while True:
-    image = masked_image.copy() #baseImage.copy()
+    image = masked_image.copy() #base_image.copy() #
 
     # draw the user selections on the canvas
     if selection_type == "point":
