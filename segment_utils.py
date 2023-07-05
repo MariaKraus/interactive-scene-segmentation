@@ -40,7 +40,6 @@ class SegmentAnything:
 
     def segment_finer(self, root, image):
         print("segment finer")
-
         points_per_side, pred_iou_thresh, stability_score_thresh = self.sample_parameters()
         self.mask_generator = SamAutomaticMaskGenerator(
             model=self.sam,
@@ -53,12 +52,26 @@ class SegmentAnything:
         )
         masks = self.segment_image(image)
         new_image = self.show_masks(image, masks)
-        cv2.namedWindow("Segmented finer")
+        cv2.namedWindow("Segmented finer", cv2.WINDOW_NORMAL)
         cv2.imshow("Segmented finer", new_image)
         root.destroy()
 
     def segment_coarser(self, root, image):
         print("segment coarser")
+        points_per_side, pred_iou_thresh, stability_score_thresh = self.sample_parameters()
+        self.mask_generator = SamAutomaticMaskGenerator(
+            model=self.sam,
+            points_per_side=points_per_side,
+            pred_iou_thresh=pred_iou_thresh,
+            stability_score_thresh=stability_score_thresh,
+            crop_n_layers=1,
+            crop_n_points_downscale_factor=2,
+            min_mask_region_area=100,  # Requires open-cv to run post-processing
+        )
+        masks = self.segment_image(image)
+        new_image = self.show_masks(image, masks)
+        cv2.namedWindow("Segmented finer", cv2.WINDOW_NORMAL)
+        cv2.imshow("Segmented finer", new_image)
         root.destroy()
 
     def show_masks(self, image, masks):
@@ -95,12 +108,12 @@ class SegmentAnything:
         return image
 
     def sample_parameters(self):
-        points_per_side = int(np.random.normal(25, 15))
+        points_per_side = int(np.random.normal(15, 15))
         pred_iou_thresh = np.random.normal(0.6, 0.2)
         stability_score_thresh = np.random.normal(0.5, 0.1)
 
         # Ensure parameters are within valid range
-        points_per_side = min(max(points_per_side, 1),40)
+        points_per_side = min(max(points_per_side, 2),40)
         pred_iou_thresh = max(min(pred_iou_thresh, 1.0), 0.0)
         stability_score_thresh = max(min(stability_score_thresh, 1.0), 0.0)
 

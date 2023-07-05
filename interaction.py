@@ -104,9 +104,22 @@ def get_selected_area_pixels(param):
 
     # extract region of interest based on bounding box
     p1, p2 = bounding_box
+    print("p1[1]", p1[1])
+    print("p2[1]", p2[1])
+
+    print("p1[0]", p1[0])
+    print("p2[0]", p2[0])
+    print("selected area", np.shape(selected_area))
 
     cv2.imwrite("selected_area_raw.png", selected_area)
-    selected_area = selected_area[p1[1]:p2[1], p1[0]:p2[0]]
+    # Determine the x and y coordinates of the bounding box
+    x1 = min(p1[0], p2[0])
+    x2 = max(p1[0], p2[0])
+    y1 = min(p1[1], p2[1])
+    y2 = max(p1[1], p2[1])
+
+    # Select the area from the image using the bounding box coordinates
+    selected_area = selected_area[y1:y2, x1:x2]
     cv2.imwrite("selected_area_scaled.png", selected_area)
     selected_area = np.array(selected_area, dtype=np.uint8)
     return selected_area
