@@ -14,7 +14,8 @@ Interactive scene segmentation tool using Segment Anything
 - Download the repository
 - Set up a virtual conda environment with the iss.yaml file:
     ``conda env create -f iss.yaml``
-- Download a pretrained model from Segment Anything, e.g [this](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth)
+- Download a pretrained model from Segment Anything, e.g [this default model](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth)
+- Lightweight (vit-b) version of the model can be found [here](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth)
 - Move the model into the directory trained_models
 
 ## Usage
