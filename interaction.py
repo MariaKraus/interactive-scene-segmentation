@@ -104,12 +104,6 @@ def get_selected_area_pixels(param):
 
     # extract region of interest based on bounding box
     p1, p2 = bounding_box
-    print("p1[1]", p1[1])
-    print("p2[1]", p2[1])
-
-    print("p1[0]", p1[0])
-    print("p2[0]", p2[0])
-    print("selected area", np.shape(selected_area))
 
     cv2.imwrite("selected_area_raw.png", selected_area)
     # Determine the x and y coordinates of the bounding box
@@ -126,9 +120,9 @@ def get_selected_area_pixels(param):
 
 
 def keyboard_callback(event, param):
+    (base_image, _, _, _, model, masked_image) = param
     if event == 13:  # Check if the key is the "Enter" key (key code 13)
         selected_area_image = get_selected_area_pixels(param)
-        _, _, _, _, model, image = param
         menu = tk.Tk()
         menu.title("Menu")
         menu.rowconfigure(0, minsize=50, weight=1)
@@ -146,6 +140,13 @@ def keyboard_callback(event, param):
         cv2.destroyAllWindows()
         exit(0)
 
+    if event == ord('n'):
+        print("New image")
+        param = list(param)
+        param[-1] = None
+        param = tuple(param)
+
+    return param
 
 def is_dictionary_in_list(dictionary, dictionary_list):
     for d in dictionary_list:
@@ -176,3 +177,12 @@ def select_masks(x, y, masks, selected_masks):
                 selected_masks.append(selected_mask)
             break
     return selected_masks
+
+
+def new_image(model):
+    # Read image from user input
+    image_path = input("Enter the path of the image: ")
+    image = cv2.imread(image_path)
+    masks = model.segment_image(image)
+    masked_image = model.show_masks(image, masks)
+    return masked_image, image
