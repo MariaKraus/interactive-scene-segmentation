@@ -1,30 +1,10 @@
+import os
 import cv2
 import tkinter as tk
-
 import numpy as np
 
 drawing = False
 polygon_closed = False
-
-
-# Function to handle menu selection
-def select_selection_type():
-    while True:
-        print("Select a selection type:")
-        print("1. Point")
-        print("2. Area")
-        print("3. Polygon")
-        choice = input("Enter your choice (1/2/3): ")
-        if choice == "1":
-            return "point"
-        elif choice == "2":
-            return "area"
-        elif choice == "3":
-            print("Press Left Mouse Button to add a point. Press Right Mouse Button to remove a point.")
-            return "polygon"
-        else:
-            print("Invalid choice. Try again.\n")
-
 
 # Mouse callback function
 def mouse_callback(event, x, y, flags, param):
@@ -69,34 +49,118 @@ def mouse_callback(event, x, y, flags, param):
             polygon_closed = False
 
 
+def keyboard_callback(event, param):
+    """
+    Method to handle keyboard events
+    :param event: The keyboard event (pressed key)
+    :param param: param = sam, base_image, masked_image, masks, selection_type, selected_points, selected_masks
+    :return: param = sam, base_image, masked_image, masks, selection_type, selected_points, selected_masks
+    """
+    (model, base_image, _, _, _, _, _) = param
+    param = list(param)
+
+    if event == 13:  # Check if the key is the "Enter" key (key code 13)
+        print("pressed Enter")
+
+    if event == ord('q'):
+        cv2.destroyAllWindows()
+        exit(0)
+
+    if event == 49:  # if 1 was pressed
+        print("point selection: Select masks you want to resegment")
+        param[4] = "point"
+        # empty the selected points
+        param[5].clear()
+
+    if event == 50:  # if 2 was pressed
+        print("area selection: Select an area that you want to re-segment "
+              "by clicking and dragging the mouse over the picture.")
+        param[4] = "area"
+        # empty the selected points
+        param[5].clear()
+
+    if event == 51:  # if 3 was pressed
+        print("Press Left Mouse Button to add a point. Press Right Mouse Button to remove a point.")
+        param[4] = "polygon"
+        # empty the selected points
+        param[5].clear()
+
+    if event == 100:  # d = arrow
+        print("New image")
+        param[1] = None
+
+    if event == 119:  # w = arrow up, segment finer
+        selected_area_image = get_selected_area_pixels(param)
+        print("selected_area_image", len(selected_area_image))
+        # if an area was selected return new masks
+        if len(selected_area_image) != 0:
+            masks = model.segment_finer(selected_area_image)
+            masked_image = model.show_masks(selected_area_image, masks)
+            param[1] = selected_area_image
+            param[2] = masked_image
+            param[3] = masks
+            # empty the selected points
+            param[5].clear()
+
+    if event == 115:  # s = arrow down, segment coarser
+        selected_area_image = get_selected_area_pixels(param)
+        # if an area was selected return new masks
+        if len(selected_area_image) != 0:
+            masks = model.segment_finer(selected_area_image)
+            masked_image = model.show_masks(selected_area_image, masks)
+            param[1] = selected_area_image
+            param[2] = masked_image
+            param[3] = masks
+            # empty the selected points
+            param[5].clear()
+
+    return param
+
+
 # Function to handle keyboard events
 def get_selected_area_pixels(param):
-    base_image, selection_type, selected_points, selected_masks, _, _ = param
-    print("base_image shape", base_image.shape)
+    _, base_image, _, _, selection_type, selected_points, selected_masks, = param
     selected_area = base_image.copy()
     bounding_box = []
 
+    # if no region was specified, return the whole image
+    if not selected_points:
+        print("Whole image selected for resegmentation")
+        return selected_area
+
     if selection_type == "point":
         # TODO: fix multiple mask selection
+        combined_masks = np.zeros(selected_area.shape)
         for mask in selected_masks:
             converted_mask = np.array(mask['segmentation'], dtype=np.uint8)
             converted_mask = np.repeat(converted_mask[:, :, np.newaxis], 3, axis=2)
-            print(converted_mask.shape)
-            selected_area = np.where(converted_mask > 0, selected_area, [0, 0, 0])
+            combined_masks += converted_mask
 
-            # convert xywh to xyxy
-            bounding_box.append([mask['bbox'][0], mask['bbox'][1]])
-            bounding_box.append([mask['bbox'][0] + mask['bbox'][2], mask['bbox'][1] + mask['bbox'][3]])
+        selected_area = np.where(combined_masks > 0, selected_area, [0, 0, 0])
+        # Find the indices of non-black pixels
+        non_black_indices = np.argwhere(np.any(selected_area != [0, 0, 0], axis=-1))
+        # Find the top-left and bottom-right points
+        top_left = np.min(non_black_indices, axis=0)
+        bottom_right = np.max(non_black_indices, axis=0)
+        bounding_box = [[top_left[0], top_left[1]], [bottom_right[0], bottom_right[1]]]
+        print("bounding box", bounding_box)
 
-        bounding_box = [np.min(bounding_box, axis=0), np.max(bounding_box, axis=0)]
 
     if selection_type == "area":
         start_point = selected_points[0]
         end_point = selected_points[-1]
+        # if only one point was selected return the whole image
+        if start_point == end_point:
+            print("Please select a complete area for resegmentation")
+            return []
         bounding_box = [start_point, end_point]
 
     if selection_type == "polygon":
         polygon_points = np.array(selected_points)
+
+        if polygon_points[0] != polygon_points[-1]:
+            print("Please selected a closed area for resegmentation")
+            return []
         mask = np.zeros((base_image.shape[0], base_image.shape[1], 3), dtype=np.uint8)
         cv2.fillPoly(mask, [polygon_points], [1, 1, 1])
         selected_area = np.where(mask > 0, selected_area, [0, 0, 0])
@@ -117,36 +181,6 @@ def get_selected_area_pixels(param):
     cv2.imwrite("selected_area_scaled.png", selected_area)
     selected_area = np.array(selected_area, dtype=np.uint8)
     return selected_area
-
-
-def keyboard_callback(event, param):
-    (base_image, _, _, _, model, masked_image) = param
-    if event == 13:  # Check if the key is the "Enter" key (key code 13)
-        selected_area_image = get_selected_area_pixels(param)
-        menu = tk.Tk()
-        menu.title("Menu")
-        menu.rowconfigure(0, minsize=50, weight=1)
-        menu.columnconfigure([0, 1], minsize=50, weight=1)
-        btn_finer = tk.Button(master=menu, text="segment finer",
-                              command=lambda: model.segment_finer(menu, selected_area_image))
-        btn_finer.grid(row=0, column=0, sticky="nsew")
-        btn_coarser = tk.Button(master=menu, text="segment coarser",
-                                command=lambda: model.segment_coarser(menu, selected_area_image))
-        btn_coarser.grid(row=0, column=1, sticky="nsew")
-        menu.attributes('-topmost', True)
-        menu.mainloop()
-
-    if event == ord('q'):
-        cv2.destroyAllWindows()
-        exit(0)
-
-    if event == ord('n'):
-        print("New image")
-        param = list(param)
-        param[-1] = None
-        param = tuple(param)
-
-    return param
 
 def is_dictionary_in_list(dictionary, dictionary_list):
     for d in dictionary_list:
@@ -179,10 +213,14 @@ def select_masks(x, y, masks, selected_masks):
     return selected_masks
 
 
-def new_image(model):
+def load_images(directory: str):
     # Read image from user input
-    image_path = input("Enter the path of the image: ")
-    image = cv2.imread(image_path)
-    masks = model.segment_image(image)
-    masked_image = model.show_masks(image, masks)
-    return masked_image, image
+    directory_path = ""
+    images = []
+    # directory exists
+    while not images:
+        for filename in os.listdir(directory):
+            img = cv2.imread(os.path.join(directory, filename))
+            if img is not None:
+                images.append(img)
+    return images

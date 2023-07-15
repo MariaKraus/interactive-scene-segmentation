@@ -41,25 +41,23 @@ class SegmentAnything:
         print(f"image segmentation: {end_time - start_time} seconds")
         return masks
 
-    def segment_finer(self, root, image):
+    def segment_finer(self, image):
         print("segment finer")
         points_per_side, pred_iou_thresh, stability_score_thresh = self.sample_parameters()
         self.mask_generator = SamAutomaticMaskGenerator(
             model=self.sam,
             points_per_side=points_per_side,
-            pred_iou_thresh=pred_iou_thresh,
-            stability_score_thresh=stability_score_thresh,
+            pred_iou_thresh=0.6,
+            stability_score_thresh=0.5,
             crop_n_layers=1,
             crop_n_points_downscale_factor=2,
             min_mask_region_area=100,  # Requires open-cv to run post-processing
         )
         masks = self.segment_image(image)
-        new_image = self.show_masks(image, masks)
-        cv2.namedWindow("Segmented finer", cv2.WINDOW_NORMAL)
-        cv2.imshow("Segmented finer", new_image)
-        root.destroy()
+        return masks
 
-    def segment_coarser(self, root, image):
+
+    def segment_coarser(self, image):
         print("segment coarser")
         points_per_side, pred_iou_thresh, stability_score_thresh = self.sample_parameters()
         self.mask_generator = SamAutomaticMaskGenerator(
@@ -72,10 +70,7 @@ class SegmentAnything:
             min_mask_region_area=100,  # Requires open-cv to run post-processing
         )
         masks = self.segment_image(image)
-        new_image = self.show_masks(image, masks)
-        cv2.namedWindow("Segmented finer", cv2.WINDOW_NORMAL)
-        cv2.imshow("Segmented finer", new_image)
-        root.destroy()
+        return masks
 
     def show_masks(self, image, masks):
         """
