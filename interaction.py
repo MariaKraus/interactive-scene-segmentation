@@ -140,11 +140,9 @@ def get_selected_area_pixels(param):
         # Find the indices of non-black pixels
         non_black_indices = np.argwhere(np.any(selected_area != [0, 0, 0], axis=-1))
         # Find the top-left and bottom-right points
-        top_left = np.min(non_black_indices, axis=0)
-        bottom_right = np.max(non_black_indices, axis=0)
-        bounding_box = [[top_left[0], top_left[1]], [bottom_right[0], bottom_right[1]]]
-        print("bounding box", bounding_box)
-
+        top_left= non_black_indices.min(axis=0)
+        bottom_right = non_black_indices.max(axis=0)
+        bounding_box = [[top_left[1], top_left[0]], [bottom_right[1], bottom_right[0]]]
 
     if selection_type == "area":
         start_point = selected_points[0]
