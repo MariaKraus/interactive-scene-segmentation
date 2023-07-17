@@ -1,5 +1,5 @@
+import time
 import numpy as np
-from matplotlib import pyplot as plt
 from segment_anything import sam_model_registry, SamAutomaticMaskGenerator
 import cv2
 
@@ -22,6 +22,7 @@ class SegmentAnything:
         # This is what we want to change with the
 
         points_per_side, pred_iou_thresh, stability_score_thresh = self.sample_parameters()
+        self.parameters = points_per_side, pred_iou_thresh, stability_score_thresh
         self.mask_generator = SamAutomaticMaskGenerator(
             model=self.sam,
             points_per_side=points_per_side,
@@ -31,48 +32,48 @@ class SegmentAnything:
             crop_n_points_downscale_factor=2,
             min_mask_region_area=100,  # Requires open-cv to run post-processing
         )
-
 
     def segment_image(self, image):
+        start_time = time.time()
         # create the masks for the image
         masks = self.mask_generator.generate(image)
+        masks = sorted(masks, key=lambda x: x['area'], reverse=False)
+        end_time = time.time()
+        print(f"image segmentation: {end_time - start_time} seconds")
         return masks
 
-    def segment_finer(self, root, image):
-        print("segment finer")
-        points_per_side, pred_iou_thresh, stability_score_thresh = self.sample_parameters()
+    def segment_finer(self, image, parameters):
+        print("segment finer with ", parameters[0], " points per side")
+        parameters = list(parameters)
+        parameters[0] = parameters[0] + 2
         self.mask_generator = SamAutomaticMaskGenerator(
             model=self.sam,
-            points_per_side=points_per_side,
-            pred_iou_thresh=pred_iou_thresh,
-            stability_score_thresh=stability_score_thresh,
+            points_per_side=parameters[0],
+            pred_iou_thresh=0.6,
+            stability_score_thresh=0.5,
             crop_n_layers=1,
             crop_n_points_downscale_factor=2,
             min_mask_region_area=100,  # Requires open-cv to run post-processing
         )
         masks = self.segment_image(image)
-        new_image = self.show_masks(image, masks)
-        cv2.namedWindow("Segmented finer", cv2.WINDOW_NORMAL)
-        cv2.imshow("Segmented finer", new_image)
-        root.destroy()
+        return masks, parameters
 
-    def segment_coarser(self, root, image):
-        print("segment coarser")
-        points_per_side, pred_iou_thresh, stability_score_thresh = self.sample_parameters()
+
+    def segment_coarser(self, image, parameters):
+        print("segment coarser with ", parameters[0], " points per side")
+        parameters = list(parameters)
+        parameters[0]= parameters[0] - 2
         self.mask_generator = SamAutomaticMaskGenerator(
             model=self.sam,
-            points_per_side=points_per_side,
-            pred_iou_thresh=pred_iou_thresh,
-            stability_score_thresh=stability_score_thresh,
+            points_per_side=parameters[0] - 2,
+            pred_iou_thresh=0.6,
+            stability_score_thresh=0.5,
             crop_n_layers=1,
             crop_n_points_downscale_factor=2,
             min_mask_region_area=100,  # Requires open-cv to run post-processing
         )
         masks = self.segment_image(image)
-        new_image = self.show_masks(image, masks)
-        cv2.namedWindow("Segmented finer", cv2.WINDOW_NORMAL)
-        cv2.imshow("Segmented finer", new_image)
-        root.destroy()
+        return masks, parameters
 
     def show_masks(self, image, masks):
         """
@@ -113,12 +114,12 @@ class SegmentAnything:
         stability_score_thresh = np.random.normal(0.5, 0.1)
 
         # Ensure parameters are within valid range
-        points_per_side = min(max(points_per_side, 2),40)
+        points_per_side = min(max(points_per_side, 2), 40)
         pred_iou_thresh = max(min(pred_iou_thresh, 1.0), 0.0)
         stability_score_thresh = max(min(stability_score_thresh, 1.0), 0.0)
 
         print("points_per_side", points_per_side)
-        print("pred_iou_tresh", pred_iou_thresh)
-        print("stability_score_thresh", stability_score_thresh)
+        #print("pred_iou_tresh", pred_iou_thresh)
+        #print("stability_score_thresh", stability_score_thresh)
 
         return points_per_side, pred_iou_thresh, stability_score_thresh
