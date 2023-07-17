@@ -1,10 +1,8 @@
 import os
 import cv2
-import tkinter as tk
 import numpy as np
 
 drawing = False
-polygon_closed = False
 
 # Mouse callback function
 def mouse_callback(event, x, y, flags, param):
@@ -34,19 +32,14 @@ def mouse_callback(event, x, y, flags, param):
             return selected_points
 
     elif selection_type == "polygon":
-        global polygon_closed
         if event == cv2.EVENT_LBUTTONDOWN:
-            if polygon_closed is False:
-                if len(selected_points) > 2 and np.linalg.norm(np.array(selected_points[0]) - np.array((x, y))) < 25:
-                    new_point = selected_points[0]
-                    polygon_closed = True
-                else:
-                    new_point = (x, y)
-                selected_points.append(new_point)
-
+            if len(selected_points) > 2 and np.linalg.norm(np.array(selected_points[0]) - np.array((x, y))) < 25:
+                new_point = selected_points[0]
+            else:
+                new_point = (x, y)
+            selected_points.append(new_point)
         if event == cv2.EVENT_RBUTTONDOWN:
             selected_points.pop()
-            polygon_closed = False
 
 
 def keyboard_callback(event, param):
@@ -56,7 +49,7 @@ def keyboard_callback(event, param):
     :param param: param = sam, base_image, masked_image, masks, selection_type, selected_points, selected_masks
     :return: param = sam, base_image, masked_image, masks, selection_type, selected_points, selected_masks
     """
-    (model, base_image, _, _, _, _, _) = param
+    (model, base_image, _, _, _, _, _, model_parameters) = param
     param = list(param)
 
     if event == 13:  # Check if the key is the "Enter" key (key code 13)
@@ -71,6 +64,8 @@ def keyboard_callback(event, param):
         param[4] = "point"
         # empty the selected points
         param[5].clear()
+        # clear the selected masks
+        param[6].clear()
 
     if event == 50:  # if 2 was pressed
         print("area selection: Select an area that you want to re-segment "
@@ -78,12 +73,16 @@ def keyboard_callback(event, param):
         param[4] = "area"
         # empty the selected points
         param[5].clear()
+        # clear the selected masks
+        param[6].clear()
 
     if event == 51:  # if 3 was pressed
         print("Press Left Mouse Button to add a point. Press Right Mouse Button to remove a point.")
         param[4] = "polygon"
         # empty the selected points
         param[5].clear()
+        # clear the selected masks
+        param[6].clear()
 
     if event == 100:  # d = arrow
         print("New image")
@@ -91,35 +90,40 @@ def keyboard_callback(event, param):
 
     if event == 119:  # w = arrow up, segment finer
         selected_area_image = get_selected_area_pixels(param)
-        print("selected_area_image", len(selected_area_image))
         # if an area was selected return new masks
         if len(selected_area_image) != 0:
-            masks = model.segment_finer(selected_area_image)
+            masks, model_parameters = model.segment_finer(selected_area_image, model_parameters)
             masked_image = model.show_masks(selected_area_image, masks)
             param[1] = selected_area_image
             param[2] = masked_image
             param[3] = masks
             # empty the selected points
             param[5].clear()
+            # clear the selected masks
+            param[6].clear()
+            param[7] = model_parameters
 
     if event == 115:  # s = arrow down, segment coarser
         selected_area_image = get_selected_area_pixels(param)
         # if an area was selected return new masks
         if len(selected_area_image) != 0:
-            masks = model.segment_finer(selected_area_image)
+            masks, model_parameters = model.segment_finer(selected_area_image, model_parameters)
             masked_image = model.show_masks(selected_area_image, masks)
             param[1] = selected_area_image
             param[2] = masked_image
             param[3] = masks
             # empty the selected points
             param[5].clear()
+            # clear the selected masks
+            param[6].clear()
+            param[7] = model_parameters
 
     return param
 
 
 # Function to handle keyboard events
 def get_selected_area_pixels(param):
-    _, base_image, _, _, selection_type, selected_points, selected_masks, = param
+    _, base_image, _, _, selection_type, selected_points, selected_masks, _ = param
     selected_area = base_image.copy()
     bounding_box = []
 
@@ -129,7 +133,6 @@ def get_selected_area_pixels(param):
         return selected_area
 
     if selection_type == "point":
-        # TODO: fix multiple mask selection
         combined_masks = np.zeros(selected_area.shape)
         for mask in selected_masks:
             converted_mask = np.array(mask['segmentation'], dtype=np.uint8)
@@ -140,7 +143,7 @@ def get_selected_area_pixels(param):
         # Find the indices of non-black pixels
         non_black_indices = np.argwhere(np.any(selected_area != [0, 0, 0], axis=-1))
         # Find the top-left and bottom-right points
-        top_left= non_black_indices.min(axis=0)
+        top_left = non_black_indices.min(axis=0)
         bottom_right = non_black_indices.max(axis=0)
         bounding_box = [[top_left[1], top_left[0]], [bottom_right[1], bottom_right[0]]]
 
@@ -155,8 +158,7 @@ def get_selected_area_pixels(param):
 
     if selection_type == "polygon":
         polygon_points = np.array(selected_points)
-
-        if polygon_points[0] != polygon_points[-1]:
+        if (polygon_points[0][0] != polygon_points[-1][0]) | (polygon_points[0][1] != polygon_points[-1][1]):
             print("Please selected a closed area for resegmentation")
             return []
         mask = np.zeros((base_image.shape[0], base_image.shape[1], 3), dtype=np.uint8)
@@ -179,6 +181,7 @@ def get_selected_area_pixels(param):
     cv2.imwrite("selected_area_scaled.png", selected_area)
     selected_area = np.array(selected_area, dtype=np.uint8)
     return selected_area
+
 
 def is_dictionary_in_list(dictionary, dictionary_list):
     for d in dictionary_list:

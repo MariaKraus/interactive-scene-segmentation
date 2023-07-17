@@ -24,6 +24,7 @@ def main(directory: str, selection_type: str):
 
     # Create the segmentation model
     sam = SegmentAnything(checkpoint="trained_models/sam_vit_b_01ec64.pth", model_type="vit_b", device="cuda")
+    model_parameters = sam.parameters
 
     # Display the image
     while True:
@@ -60,13 +61,10 @@ def main(directory: str, selection_type: str):
         key = cv2.waitKey(1)
         if key != -1:  # Check if any key is pressed
             param = keyboard_callback(key, param=(sam, base_image, masked_image, masks, selection_type, selected_points,
-                                                  selected_masks))  # Call the keyboard callback function
-            _, base_image, masked_image, masks, selection_type, selected_points, _ = param
+                                                  selected_masks, model_parameters))  # Call the keyboard callback function
+            _, base_image, masked_image, masks, selection_type, selected_points, selected_masks, model_parameters = param
             # reset mouse callback with new interaction type
             cv2.setMouseCallback("Image", mouse_callback, param=(selection_type, selected_points))
-
-        #if len(selected_masks) > 0:
-        #    masked_image = sam.show_masks(base_image, selected_masks)
 
         cv2.imshow("Image", temp_image)
 
