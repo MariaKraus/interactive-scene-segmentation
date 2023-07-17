@@ -29,7 +29,7 @@ cv2.setMouseCallback("Image", mouse_callback, param=(selection_type,selected_poi
 
 start_time = time.time()
 
-sam = SegmentAnything(checkpoint="trained_models/sam_vit_h_4b8939.pth", model_type="vit_h", device="cuda")
+sam = SegmentAnything(checkpoint="trained_models/sam_vit_b_01ec64.pth", model_type="vit_b", device="cuda")
 masks = sam.segment_image(image)
 masks = sorted(masks, key=lambda x: x['area'], reverse=False)
 masked_image = sam.show_masks(image, masks)
