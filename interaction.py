@@ -4,6 +4,7 @@ import numpy as np
 
 drawing = False
 
+
 # Mouse callback function
 def mouse_callback(event, x, y, flags, param):
     (selection_type, selected_points) = param
@@ -46,10 +47,10 @@ def keyboard_callback(event, param):
     """
     Method to handle keyboard events
     :param event: The keyboard event (pressed key)
-    :param param: param = sam, base_image, masked_image, masks, selection_type, selected_points, selected_masks
-    :return: param = sam, base_image, masked_image, masks, selection_type, selected_points, selected_masks
+    :param param: param = sam, base_image, masked_image, masks, selection_type, selected_points, selected_masks, interactive_trainer
+    :return: param = sam, base_image, masked_image, masks, selection_type, selected_points, selected_masks, interactive_trainer
     """
-    (model, base_image, _, _, _, _, _, model_parameters) = param
+    (model, base_image, _, _, _, _, _, model_parameters, interactive_trainer) = param
     param = list(param)
 
     if event == 13:  # Check if the key is the "Enter" key (key code 13)
@@ -88,6 +89,12 @@ def keyboard_callback(event, param):
         print("New image")
         param[1] = None
 
+        points_per_side, _, _ = model.parameters
+        image_resized = cv2.resize(base_image, (100, 100))
+        # cv2.imwrite("segmentation_image.png", base_image)
+
+        interactive_trainer.update(image_resized, points_per_side)
+
     if event == 119:  # w = arrow up, segment finer
         selected_area_image = get_selected_area_pixels(param)
         # if an area was selected return new masks
@@ -123,7 +130,7 @@ def keyboard_callback(event, param):
 
 # Function to handle keyboard events
 def get_selected_area_pixels(param):
-    _, base_image, _, _, selection_type, selected_points, selected_masks, _ = param
+    _, base_image, _, _, selection_type, selected_points, selected_masks, _, _ = param
     selected_area = base_image.copy()
     bounding_box = []
 
