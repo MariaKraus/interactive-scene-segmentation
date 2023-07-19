@@ -43,9 +43,8 @@ class SegmentAnything:
         return masks
 
     def segment_finer(self, image, parameters):
-        print("segment finer with ", parameters[0], " points per side")
-        parameters = list(parameters)
         self.parameters[0] = self.parameters[0] + 2
+        print("segment finer with ", parameters[0], " points per side")
         self.mask_generator = SamAutomaticMaskGenerator(
             model=self.sam,
             points_per_side=parameters[0],
@@ -60,9 +59,8 @@ class SegmentAnything:
 
 
     def segment_coarser(self, image, parameters):
+        self.parameters[0] = self.parameters[0] - 2
         print("segment coarser with ", parameters[0], " points per side")
-        parameters = list(parameters)
-        self.parameters = self.parameters[0] - 2
         self.mask_generator = SamAutomaticMaskGenerator(
             model=self.sam,
             points_per_side=parameters[0] - 2,

@@ -114,7 +114,7 @@ def keyboard_callback(event, param):
         selected_area_image = get_selected_area_pixels(param)
         # if an area was selected return new masks
         if len(selected_area_image) != 0:
-            masks, model_parameters = model.segment_finer(selected_area_image, model_parameters)
+            masks, model_parameters = model.segment_coarser(selected_area_image, model_parameters)
             masked_image = model.show_masks(selected_area_image, masks)
             param[1] = selected_area_image
             param[2] = masked_image
