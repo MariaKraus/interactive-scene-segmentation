@@ -22,7 +22,7 @@ class SegmentAnything:
         # This is what we want to change with the
 
         points_per_side, pred_iou_thresh, stability_score_thresh = self.sample_parameters()
-        self.parameters = points_per_side, pred_iou_thresh, stability_score_thresh
+        self.parameters = [points_per_side, pred_iou_thresh, stability_score_thresh]
         self.mask_generator = SamAutomaticMaskGenerator(
             model=self.sam,
             points_per_side=points_per_side,
@@ -43,9 +43,8 @@ class SegmentAnything:
         return masks
 
     def segment_finer(self, image, parameters):
+        self.parameters[0] = self.parameters[0] + 2
         print("segment finer with ", parameters[0], " points per side")
-        parameters = list(parameters)
-        parameters[0] = parameters[0] + 2
         self.mask_generator = SamAutomaticMaskGenerator(
             model=self.sam,
             points_per_side=parameters[0],
@@ -60,9 +59,8 @@ class SegmentAnything:
 
 
     def segment_coarser(self, image, parameters):
+        self.parameters[0] = self.parameters[0] - 2
         print("segment coarser with ", parameters[0], " points per side")
-        parameters = list(parameters)
-        parameters[0]= parameters[0] - 2
         self.mask_generator = SamAutomaticMaskGenerator(
             model=self.sam,
             points_per_side=parameters[0] - 2,

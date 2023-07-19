@@ -2,6 +2,7 @@ import argparse
 
 from interaction import *
 from segment_utils import SegmentAnything
+from interactive_learning import cnn
 
 
 #  /Users/danielbosch/Downloads/tools.jpg
@@ -26,6 +27,8 @@ def main(directory: str, selection_type: str):
     sam = SegmentAnything(checkpoint="trained_models/sam_vit_b_01ec64.pth", model_type="vit_b", device="cuda")
     model_parameters = sam.parameters
 
+    interactive_trainer = cnn.CNNTrainer()
+
     # Display the image
     while True:
         # Load the base image and the masks
@@ -37,6 +40,8 @@ def main(directory: str, selection_type: str):
                 masked_image = sam.show_masks(base_image, masks)
             except:
                 print("Last image in directory, press ENTER to end the training")
+                cv2.destroyAllWindows()
+                exit(0)
             # show the masked image
             temp_image = masked_image.copy()
         else:
@@ -61,8 +66,9 @@ def main(directory: str, selection_type: str):
         key = cv2.waitKey(1)
         if key != -1:  # Check if any key is pressed
             param = keyboard_callback(key, param=(sam, base_image, masked_image, masks, selection_type, selected_points,
-                                                  selected_masks, model_parameters))  # Call the keyboard callback function
-            _, base_image, masked_image, masks, selection_type, selected_points, selected_masks, model_parameters = param
+                                                  selected_masks, model_parameters,
+                                                  interactive_trainer))  # Call the keyboard callback function
+            _, base_image, masked_image, masks, selection_type, selected_points, selected_masks, model_parametersm, _ = param
             # reset mouse callback with new interaction type
             cv2.setMouseCallback("Image", mouse_callback, param=(selection_type, selected_points))
 
