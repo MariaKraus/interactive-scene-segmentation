@@ -1,4 +1,5 @@
 import os
+import random
 from datetime import datetime
 
 import numpy as np
@@ -7,7 +8,8 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data as data
 import torchvision.transforms as transforms
-from matplotlib import pyplot as plt
+from PIL import Image
+from matplotlib import pyplot as plt, cm
 from torch.utils.tensorboard import SummaryWriter
 from torchsummary import summary
 
@@ -50,9 +52,18 @@ class CNN(nn.Module):
 
 
 class ImageDataset(data.Dataset):
+
     def __init__(self, transform=None):
         self.data = []  # TODO: change to dict where key is path to image and value is delta
-        self.transform = transform
+        self.transform = transforms.Compose([
+                            transforms.ToPILImage(),
+                            transforms.RandomHorizontalFlip(),
+                            transforms.RandomRotation(15),
+                            transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.5),
+                            transforms.RandomGrayscale(),
+                            transforms.GaussianBlur(3),
+                            transforms.ToTensor()
+                        ])
 
     def __len__(self):
         return len(self.data)
@@ -62,6 +73,10 @@ class ImageDataset(data.Dataset):
 
     def add_image(self, image, delta):
         self.data.append((transforms.ToTensor()(image), np.float32(delta)))
+        # Add random variations of the image
+        for i in range(random.randint(1, 10)):
+            self.data.append((self.transform(image), np.float32(delta)))
+
 
 
 class CNNTrainer:

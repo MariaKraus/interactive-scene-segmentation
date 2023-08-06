@@ -55,7 +55,7 @@ def train(image_dir: str, label:str):
                 hamburg_names.append(parts[0])
                 hamburg_numbers.append(int(parts[1]))
 
-    epochs = 100
+    epochs = 25
 
     for ep in range(epochs):
         print("Epoch: ", ep)
@@ -66,7 +66,7 @@ def train(image_dir: str, label:str):
             interactive_trainer.update(image_resized, hamburg_numbers[i])
 
     interactive_trainer.plot_results()
-
+    interactive_trainer.save_model()
 
 
 if __name__ == "__main__":
