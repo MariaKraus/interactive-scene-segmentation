@@ -2,7 +2,7 @@ import argparse
 import os
 
 import cv2
-
+from sklearn.utils import shuffle
 from interactive_learning import cnn
 
 
@@ -55,10 +55,15 @@ def train(image_dir: str, label:str):
                 hamburg_names.append(parts[0])
                 hamburg_numbers.append(int(parts[1]))
 
-    for i in range(len(hamburg_names)):
-        img = cv2.imread(os.path.join(os.getcwd(), "train", "hamburg", hamburg_names[i]))
-        image_resized = cv2.resize(img, (100, 100))
-        interactive_trainer.update(image_resized, hamburg_numbers[i])
+    epochs = 100
+
+    for ep in range(epochs):
+        print("Epoch: ", ep)
+        hamburg_names, hamburg_numbers = shuffle(hamburg_names, hamburg_numbers)
+        for i in range(len(hamburg_names)):
+            img = cv2.imread(os.path.join(os.getcwd(), "train", "hamburg", hamburg_names[i]))
+            image_resized = cv2.resize(img, (100, 100))
+            interactive_trainer.update(image_resized, hamburg_numbers[i])
 
     interactive_trainer.plot_results()
 

@@ -11,13 +11,14 @@ from interactive_learning import cnn
 
 def main(directory: str, selection_type: str):
     # Select the type of selection
-    images = load_images(directory)
+    images, file_names = load_images(directory)
     # Arrays for user selection
     selected_points = []
     selected_masks = []
     masks = []
     masked_image = None
     base_image = None
+    name = None
 
     # Create a named window and set mouse callback
     cv2.namedWindow("Image", cv2.WINDOW_NORMAL)
@@ -36,10 +37,11 @@ def main(directory: str, selection_type: str):
             # load the next image
             try:
                 base_image = images.pop(0)
+                name = file_names.pop(0)
                 masks = sam.segment_image(base_image)
                 masked_image = sam.show_masks(base_image, masks)
             except:
-                print("Last image in directory, press ENTER to end the training")
+                print("Last image in directory, training is over")
                 cv2.destroyAllWindows()
                 exit(0)
             # show the masked image
@@ -67,8 +69,8 @@ def main(directory: str, selection_type: str):
         if key != -1:  # Check if any key is pressed
             param = keyboard_callback(key, param=(sam, base_image, masked_image, masks, selection_type, selected_points,
                                                   selected_masks, model_parameters,
-                                                  interactive_trainer))  # Call the keyboard callback function
-            _, base_image, masked_image, masks, selection_type, selected_points, selected_masks, model_parametersm, _ = param
+                                                  interactive_trainer, name))  # Call the keyboard callback function
+            _, base_image, masked_image, masks, selection_type, selected_points, selected_masks, model_parametersm, _n, _ = param
             # reset mouse callback with new interaction type
             cv2.setMouseCallback("Image", mouse_callback, param=(selection_type, selected_points))
 
@@ -80,7 +82,7 @@ def main(directory: str, selection_type: str):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Interactive Scene Segmentation")
-    parser.add_argument("--dir", type=str, default=os.getcwd() + "/test",
+    parser.add_argument("--dir", type=str, default=os.getcwd() + "/train/hamburg/",
                         help="The directory with the training images")
     parser.add_argument("--interaction", type=str, default="point",
                         help="The interaction type: point, area or polygon")
