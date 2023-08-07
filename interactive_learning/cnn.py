@@ -1,17 +1,12 @@
 import os
-import random
 from datetime import datetime
-
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import torch.utils.data as data
 import torchvision.transforms as transforms
-from PIL import Image
 from matplotlib import pyplot as plt, cm
 from torch.utils.tensorboard import SummaryWriter
-from torchsummary import summary
 
 
 class CNN(nn.Module):
@@ -56,14 +51,14 @@ class ImageDataset(data.Dataset):
     def __init__(self, transform=None):
         self.data = []  # TODO: change to dict where key is path to image and value is delta
         self.transform = transforms.Compose([
-                            transforms.ToPILImage(),
-                            transforms.RandomHorizontalFlip(),
-                            transforms.RandomRotation(15),
-                            transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.5),
-                            transforms.RandomGrayscale(),
-                            transforms.GaussianBlur(3),
-                            transforms.ToTensor()
-                        ])
+            transforms.ToPILImage(),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomRotation(15),
+            transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.5),
+            transforms.RandomGrayscale(),
+            transforms.GaussianBlur(3),
+            transforms.ToTensor()
+        ])
 
     def __len__(self):
         return len(self.data)
@@ -73,10 +68,9 @@ class ImageDataset(data.Dataset):
 
     def add_image(self, image, delta):
         self.data.append((transforms.ToTensor()(image), np.float32(delta)))
-        # Add random variations of the image
-        for i in range(random.randint(1, 10)):
-            self.data.append((self.transform(image), np.float32(delta)))
 
+    def augment_image(self, image, delta):
+        self.data.append((self.transform(image), np.float32(delta)))
 
 
 class CNNTrainer:
@@ -87,6 +81,7 @@ class CNNTrainer:
         # optimizer
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=0.001, momentum=0.9)
         self.criterion = nn.MSELoss()
+        self.mae = nn.L1Loss()
         self.losses = []
         # Initialize TensorBoard writer
         self.writer = SummaryWriter()
@@ -94,59 +89,71 @@ class CNNTrainer:
     def train_one_batch(self, trainloader):
         running_loss = 0.0
         last_loss = 0.0
+        mean_absolute_error = 0.0
 
         for i, data in enumerate(trainloader, 0):
             inputs, labels = data
-
             self.optimizer.zero_grad()
-
             outputs = self.model(inputs)
             loss = self.criterion(outputs.squeeze(), labels.squeeze())
+            mean_absolute_error += self.mae(outputs.squeeze(), labels.squeeze()).item()
             loss.backward()
             # clip gradients to prevent exploding gradients
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(),10)
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 10)
             self.optimizer.step()
 
-            #running_loss += loss.item()
+            running_loss += loss.item()
             last_loss = loss.item()
-            #print("output ", outputs.squeeze())
-            #print("label ", labels.squeeze())
-            #print('[%d, %5d] loss: %.3f' % (self.batches, i + 1, running_loss / 2000))
-            # Log loss to TensorBoard
-            self.writer.add_scalar('Loss/train', loss, self.batches * len(trainloader) + i)
-            running_loss = 0.0
 
-        return last_loss
+        avg_loss = running_loss / len(trainloader)
+        avg_absolute_error = mean_absolute_error / len(trainloader)
+
+        # Log loss to TensorBoard
+        self.writer.add_scalar('MSE Loss/ train', avg_loss, self.batches)
+        self.writer.add_scalar('Avg Absolute Error/ train', avg_absolute_error, self.batches)
+
+        return avg_loss
 
     def update(self, image, delta):
         # train one batch at a time
-        # since we do incremental learning, the caller has to keep track of epoch count
-
         self.batches += 1
-
         dataset = ImageDataset()
         dataset.add_image(image, delta)
+        # augment a fixed number of times
+        augmentations = 9
+        for i in range(augmentations):
+            dataset.augment_image(image, delta)
 
-        # summary(self.model.cuda(), (3, 100, 100))
-
-        trainloader = data.DataLoader(dataset, batch_size=1, num_workers=1)
-
-        #timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        ## Initialize Tensorboard
-        #writer = SummaryWriter('runs/fashion_trainer_{}'.format(timestamp))
+        trainloader = data.DataLoader(dataset, batch_size=augmentations + 1, num_workers=1)
         loss = self.train_one_batch(trainloader)
         self.losses.append(loss)
 
-        # TODO: potentially think of a way to add a validation set (if that even makes sense)
-        # log the loss
-        #writer.add_scalar('Loss/train', loss, self.epoch)
-        #writer.flush()
+    def validate(self, image, delta):
+        val_loss = 0.0
+        mean_absolute_error = 0.0
+        validation_set = ImageDataset()
+        validation_set.add_image(image, delta)
+        validation_loader = data.DataLoader(validation_set, batch_size=1, num_workers=1)
+
+        print("len validation data set: ", len(validation_set))
+
+        for i, val_data in enumerate(validation_loader, 0):
+            inputs, labels = val_data
+            outputs = self.model(inputs)
+            loss = self.criterion(outputs.squeeze(), labels.squeeze())
+            val_loss += loss.item()
+            mean_absolute_error += self.mae(outputs.squeeze(), labels.squeeze()).item()
+
+        # Log validation loss to TensorBoard
+        self.writer.add_scalar('MSE Loss/ validation', val_loss / len(validation_set), self.batches)
+        self.writer.add_scalar('Avg Absolute Error/ valdiation', mean_absolute_error / len(validation_set),
+                               self.batches)
 
     def plot_results(self):
         # Plot loss over epochs
         plt.figure(figsize=(10, 5))
         plt.plot(self.losses, label='Loss')
-        plt.xlabel('Epoch')
+        plt.xlabel('batches')
         plt.ylabel('Loss')
         plt.title('Training Loss')
         plt.legend()
@@ -158,6 +165,5 @@ class CNNTrainer:
             os.makedirs(path)
         # save model
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        model_path = 'models/interactive_model_{}.pth'.format(timestamp, self.epoch)
+        model_path = 'models/interactive_model_{}.pth'.format(timestamp, self.batches)
         torch.save(self.model.state_dict(), model_path)
-

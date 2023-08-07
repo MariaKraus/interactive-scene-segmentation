@@ -4,6 +4,7 @@ import os
 import cv2
 from sklearn.utils import shuffle
 from interactive_learning import cnn
+from sklearn.model_selection import train_test_split
 
 
 def load_images(directory: str):
@@ -33,15 +34,15 @@ def train(image_dir: str, label:str):
     :param label: The directory with the training labels
     :return: None
     """
-    images = load_images(image_dir)
-    numbers = read_numbers_from_file(label)
+    #images = load_images(image_dir)
+    #numbers = read_numbers_from_file(label)
 
-    print("images", len(images))
-    print("numbers", len(numbers))
+    #print("images", len(images))
+    #print("numbers", len(numbers))
     interactive_trainer = cnn.CNNTrainer()
 
-    for i in range(len(images)):
-        image_resized = cv2.resize(images[i], (100, 100))
+    #for i in range(len(images)):
+        # image_resized = cv2.resize(images[i], (200, 200))
         #interactive_trainer.update(image_resized, int(numbers[i]))
 
     hamburg_names = []
@@ -55,18 +56,26 @@ def train(image_dir: str, label:str):
                 hamburg_names.append(parts[0])
                 hamburg_numbers.append(int(parts[1]))
 
-    epochs = 25
+    # Split the data into training and validation sets
+    train_data, val_data, train_labels, val_labels = train_test_split(hamburg_names, hamburg_numbers, test_size=0.2, random_state=42)
 
+    epochs = 25
     for ep in range(epochs):
         print("Epoch: ", ep)
-        hamburg_names, hamburg_numbers = shuffle(hamburg_names, hamburg_numbers)
-        for i in range(len(hamburg_names)):
-            img = cv2.imread(os.path.join(os.getcwd(), "train", "hamburg", hamburg_names[i]))
+        train_data, train_labels = shuffle(train_data, train_labels)
+        for i in range(len(train_data)):
+            img = cv2.imread(os.path.join(os.getcwd(), "train", "hamburg", train_data[i]))
             image_resized = cv2.resize(img, (100, 100))
-            interactive_trainer.update(image_resized, hamburg_numbers[i])
+            interactive_trainer.update(image_resized, train_labels[i])
+
+        # validate at the end of each epoch
+        for i in range(len(val_data)):
+            img = cv2.imread(os.path.join(os.getcwd(), "train", "hamburg", val_data[i]))
+            image_resized = cv2.resize(img, (100, 100))
+            interactive_trainer.validate(image_resized, val_labels[i])
 
     interactive_trainer.plot_results()
-    interactive_trainer.save_model()
+    # interactive_trainer.save_model()
 
 
 if __name__ == "__main__":
