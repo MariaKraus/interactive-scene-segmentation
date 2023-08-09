@@ -45,59 +45,43 @@ def train(image_dir: str, label:str):
         # image_resized = cv2.resize(images[i], (200, 200))
         #interactive_trainer.update(image_resized, int(numbers[i]))
 
-    hamburg_names = []
-    hamburg_numbers = []
+    names = []
+    numbers = []
     # Read the text file line by line
     with open(os.getcwd() + "/label_hamburg.txt", 'r') as file:
         lines = file.readlines()
         for line in lines:
             parts = line.strip().split(',')
             if len(parts) == 2:
-                hamburg_names.append(parts[0])
-                hamburg_numbers.append(int(parts[1]))
+                names.append(parts[0])
+                numbers.append(int(parts[1]))
 
-    # Split the data into training and validation sets
-    train_data, val_data, train_labels, val_labels = train_test_split(hamburg_names, hamburg_numbers, test_size=0.2, random_state=42)
-
-
-    cat_names = []
-    cat_numbers = []
     # Read the text file line by line
     with open(os.getcwd() + "/label_cats.txt", 'r') as file:
         lines  = file.readlines()
         for line in lines:
             parts = line.strip().split(',')
             if len(parts) == 2:
-                cat_names.append(parts[0])
-                cat_numbers.append(int(parts[1]))
+                names.append(parts[0])
+                numbers.append(int(parts[1]))
 
     # Split the data into training and validation sets
-    train_data_cats, val_data_cats, train_labels_cats, val_labels_cats = train_test_split(cat_names, cat_numbers, test_size=0.2, random_state=42)
+    train_data, val_data, train_labels, val_labels = train_test_split(names, numbers, test_size=0.2, random_state=42)
 
     epochs = 25
     for ep in range(epochs):
         print("Epoch: ", ep)
         train_data, train_labels = shuffle(train_data, train_labels)
         for i in range(len(train_data)):
-            img = cv2.imread(os.path.join(os.getcwd(), "train", "hamburg", train_data[i]))
+            img = cv2.imread(os.path.join(os.getcwd(), "train", "cats", train_data[i]))
             image_resized = cv2.resize(img, (200, 200))
             interactive_trainer.update(image_resized, train_labels[i])
 
-        for j in range(len(train_data_cats)):
-            img = cv2.imread(os.path.join(os.getcwd(), "train", "cats", train_data_cats[j]))
-            image_resized = cv2.resize(img, (200, 200))
-            interactive_trainer.update(image_resized, train_labels_cats[j])
-
         # validate at the end of each epoch
         for k in range(len(val_data)):
-            img = cv2.imread(os.path.join(os.getcwd(), "train", "hamburg", val_data[k]))
+            img = cv2.imread(os.path.join(os.getcwd(), "train", "cats", val_data[k]))
             image_resized = cv2.resize(img, (200, 200))
             interactive_trainer.validate(image_resized, val_labels[k])
-
-        for l in range(len(val_data_cats)):
-            img = cv2.imread(os.path.join(os.getcwd(), "train", "cats", val_data_cats[l]))
-            image_resized = cv2.resize(img, (200, 200))
-            interactive_trainer.validate(image_resized, val_labels_cats[l])
 
     interactive_trainer.plot_results()
     # interactive_trainer.save_model()
