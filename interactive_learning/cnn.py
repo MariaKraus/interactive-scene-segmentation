@@ -28,7 +28,7 @@ class CNN(nn.Module):
         # Fully connected layers for regression
         self.fc_layers = nn.Sequential(
             # 25 * 25 is the number of pixels in the image after 2 pooling layers
-            nn.Linear(in_features=32 * 25 * 25, out_features=64),
+            nn.Linear(in_features=32 * 50 * 50, out_features=64),
             nn.ReLU(),
             nn.Linear(64, 64),
         )
@@ -91,8 +91,8 @@ class CNNTrainer:
         last_loss = 0.0
         mean_absolute_error = 0.0
 
-        for i, data in enumerate(trainloader, 0):
-            inputs, labels = data
+        for i, batch in enumerate(trainloader, 0):
+            inputs, labels = batch
             self.optimizer.zero_grad()
             outputs = self.model(inputs)
             loss = self.criterion(outputs.squeeze(), labels.squeeze())
@@ -104,6 +104,8 @@ class CNNTrainer:
 
             running_loss += loss.item()
             last_loss = loss.item()
+            # Log validation loss to TensorBoard
+            self.writer.add_scalar('output/ validation', outputs.squeeze()[0], self.batches)
 
         avg_loss = running_loss / len(trainloader)
         avg_absolute_error = mean_absolute_error / len(trainloader)
@@ -135,8 +137,6 @@ class CNNTrainer:
         validation_set.add_image(image, delta)
         validation_loader = data.DataLoader(validation_set, batch_size=1, num_workers=1)
 
-        print("len validation data set: ", len(validation_set))
-
         for i, val_data in enumerate(validation_loader, 0):
             inputs, labels = val_data
             outputs = self.model(inputs)
@@ -144,7 +144,6 @@ class CNNTrainer:
             val_loss += loss.item()
             mean_absolute_error += self.mae(outputs.squeeze(), labels.squeeze()).item()
 
-        # Log validation loss to TensorBoard
         self.writer.add_scalar('MSE Loss/ validation', val_loss / len(validation_set), self.batches)
         self.writer.add_scalar('Avg Absolute Error/ valdiation', mean_absolute_error / len(validation_set),
                                self.batches)
