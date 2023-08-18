@@ -68,7 +68,7 @@ def train(image_dir: str, label:str):
     # Split the data into training and validation sets
     train_data, val_data, train_labels, val_labels = train_test_split(names, numbers, test_size=0.2, random_state=42)
 
-    epochs = 25
+    epochs = 10
     for ep in range(epochs):
         print("Epoch: ", ep)
         train_data, train_labels = shuffle(train_data, train_labels)

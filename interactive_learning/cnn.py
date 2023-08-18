@@ -85,19 +85,42 @@ class CNNTrainer:
         self.losses = []
         # Initialize TensorBoard writer
         self.writer = SummaryWriter()
+        self.visualize_iteration = 200
 
     def train_one_batch(self, trainloader):
         running_loss = 0.0
         last_loss = 0.0
         mean_absolute_error = 0.0
+        visualize = self.batches % self.visualize_iteration == 0
 
         for i, batch in enumerate(trainloader, 0):
             inputs, labels = batch
+
+            # Enable gradient calculation for the input image
+            if visualize:
+                inputs.requires_grad = True
+
             self.optimizer.zero_grad()
             outputs = self.model(inputs)
             loss = self.criterion(outputs.squeeze(), labels.squeeze())
             mean_absolute_error += self.mae(outputs.squeeze(), labels.squeeze()).item()
             loss.backward()
+
+            if visualize:  # To analyze feature maps every 10 batches, adjust as needed
+                gradients = inputs.grad
+                # Plot the magnitude of gradients as a heatmap
+                gradient_magnitude = gradients.norm(dim=1, keepdim=True)  # Calculate gradient magnitude
+                heatmap = gradient_magnitude[0].cpu().detach().numpy()  # Convert to numpy array
+
+                # Plot the original input image
+                plt.imshow(transforms.ToPILImage()(inputs[0].cpu().detach()), cmap='gray')
+
+                plt.imshow(heatmap[0], cmap='hot', alpha=0.4, interpolation='nearest')
+                plt.axis('off')
+                # Save the blended image with heatmap overlay
+                plt.savefig(f'result_images/{self.batches}_blended_image.png')
+                plt.clf()
+
             # clip gradients to prevent exploding gradients
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 10)
             self.optimizer.step()
@@ -107,6 +130,11 @@ class CNNTrainer:
             # Log validation loss to TensorBoard
             self.writer.add_scalar('output/ validation', outputs.squeeze()[0], self.batches)
 
+            # Analyze feature maps for a specific input after training
+            if visualize:  # To analyze feature maps every 10 batches, adjust as needed
+                self.analyze_feature_maps(inputs[0], labels[0].squeeze())
+                pass
+
         avg_loss = running_loss / len(trainloader)
         avg_absolute_error = mean_absolute_error / len(trainloader)
 
@@ -114,10 +142,6 @@ class CNNTrainer:
         self.writer.add_scalar('MSE Loss/ train', avg_loss, self.batches)
         self.writer.add_scalar('Avg Absolute Error/ train', avg_absolute_error, self.batches)
 
-        # Analyze feature maps for a specific input after training
-        if self.batches % 100 == 0:  # To analyze feature maps every 10 batches, adjust as needed
-            inputs, labels = next(iter(trainloader))
-            self.analyze_feature_maps(inputs[0], labels[0].squeeze())
 
         return avg_loss
 
@@ -127,7 +151,7 @@ class CNNTrainer:
         dataset = ImageDataset()
         dataset.add_image(image, delta)
         # augment a fixed number of times
-        augmentations = 9
+        augmentations = 15
         for i in range(augmentations):
             dataset.augment_image(image, delta)
 
@@ -141,13 +165,13 @@ class CNNTrainer:
         validation_set = ImageDataset()
         validation_set.add_image(image, delta)
         validation_loader = data.DataLoader(validation_set, batch_size=1, num_workers=1)
-
-        for i, val_data in enumerate(validation_loader, 0):
-            inputs, labels = val_data
-            outputs = self.model(inputs)
-            loss = self.criterion(outputs.squeeze(), labels.squeeze())
-            val_loss += loss.item()
-            mean_absolute_error += self.mae(outputs.squeeze(), labels.squeeze()).item()
+        with torch.no_grad():
+            for i, val_data in enumerate(validation_loader, 0):
+                inputs, labels = val_data
+                outputs = self.model(inputs)
+                loss = self.criterion(outputs.squeeze(), labels.squeeze())
+                val_loss += loss.item()
+                mean_absolute_error += self.mae(outputs.squeeze(), labels.squeeze()).item()
 
         self.writer.add_scalar('MSE Loss/ validation', val_loss / len(validation_set), self.batches)
         self.writer.add_scalar('Avg Absolute Error/ valdiation', mean_absolute_error / len(validation_set),
@@ -200,26 +224,33 @@ class CNNTrainer:
         num_channels = feature_maps0.shape[0]
         num_cols = min(8, num_channels)  # Number of columns in the visualization
         num_rows = (num_channels + num_cols - 1) // num_cols
-        fig, axes = plt.subplots(num_rows, num_cols, figsize=(12, 12))
+        fig0, axes0 = plt.subplots(num_rows, num_cols, figsize=(12, 12))
 
-        for i, ax in enumerate(axes.flatten()):
+        fig0.suptitle('Feature Map  0', fontsize=16)
+        for i, ax in enumerate(axes0.flatten()):
             if i < num_channels:
                 ax.imshow(feature_maps0[i], cmap='viridis')
-                ax.set_title(f'Channel {i}, Feature Map 0')
+                ax.set_title(f'Channel {i}')
             ax.axis('off')
+        plt.savefig(f'result_images/{self.batches}_featureMaps0.png')
+        plt.clf()
 
         # Plot the feature maps
         num_channels = feature_maps3.shape[0]
         num_cols = min(8, num_channels)  # Number of columns in the visualization
         num_rows = (num_channels + num_cols - 1) // num_cols
-        fig, axes = plt.subplots(num_rows, num_cols, figsize=(12, 12))
+        fig3, axes3 = plt.subplots(num_rows, num_cols, figsize=(12, 12))
 
-        for i, ax in enumerate(axes.flatten()):
+        fig3.suptitle('Feature Map 3', fontsize=16)
+        for i, ax in enumerate(axes3.flatten()):
             if i < num_channels:
                 ax.imshow(feature_maps3[i], cmap='viridis')
-                ax.set_title(f'Channel {i}, Feature Map 3')
+                ax.set_title(f'Channel {i}')
             ax.axis('off')
 
         plt.tight_layout()
-        plt.show()
+        # Save the blended image with heatmap overlay
+        plt.savefig(f'result_images/{self.batches}_featureMaps3.png')
+        plt.clf()
 
+        #plt.show()
