@@ -20,7 +20,7 @@ class CNN(nn.Module):
             nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, padding=1),
+            nn.Conv2d(in_channels=16, out_channels=16, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),
         )
@@ -28,13 +28,13 @@ class CNN(nn.Module):
         # Fully connected layers for regression
         self.fc_layers = nn.Sequential(
             # 25 * 25 is the number of pixels in the image after 2 pooling layers
-            nn.Linear(in_features=32 * 50 * 50, out_features=64),
+            nn.Linear(in_features=16 * 25 * 25, out_features=4),
             nn.ReLU(),
-            nn.Linear(64, 64),
+            nn.Linear(4, 4),
         )
 
         self.fc_layers_output = nn.Sequential(
-            nn.Linear(in_features=64, out_features=1),
+            nn.Linear(in_features=4, out_features=1),
         )
 
     def forward(self, x):
@@ -114,6 +114,11 @@ class CNNTrainer:
         self.writer.add_scalar('MSE Loss/ train', avg_loss, self.batches)
         self.writer.add_scalar('Avg Absolute Error/ train', avg_absolute_error, self.batches)
 
+        # Analyze feature maps for a specific input after training
+        if self.batches % 100 == 0:  # To analyze feature maps every 10 batches, adjust as needed
+            inputs, labels = next(iter(trainloader))
+            self.analyze_feature_maps(inputs[0], labels[0].squeeze())
+
         return avg_loss
 
     def update(self, image, delta):
@@ -166,3 +171,55 @@ class CNNTrainer:
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         model_path = 'models/interactive_model_{}.pth'.format(timestamp, self.batches)
         torch.save(self.model.state_dict(), model_path)
+
+    def analyze_feature_maps(self, inputs, target):
+        # Set the model to evaluation mode
+        self.model.eval()
+        feature_maps = []
+
+        # Choose a convolutional layer for analysis (e.g., the first convolutional layer)
+        target_layer = self.model.conv_layers[0]
+        second_layer = self.model.conv_layers[1]
+        third_layer = self.model.conv_layers[2]
+        fourth_layer = self.model.conv_layers[3]
+        fifth_layer = self.model.conv_layers[4]
+
+        # Forward pass to get feature maps
+        with torch.no_grad():
+            feature_maps.append(target_layer(inputs))
+            feature_maps.append(second_layer(feature_maps[0]))
+            feature_maps.append(third_layer(feature_maps[1]))
+            feature_maps.append(fourth_layer(feature_maps[2]))
+            feature_maps.append(fifth_layer(feature_maps[3]))
+
+        # Convert the feature maps that should be depicted to numpy arrays
+        feature_maps0 = feature_maps[0].squeeze().cpu().numpy()
+        feature_maps3 = feature_maps[3].squeeze().cpu().numpy()
+
+        # Plot the feature maps
+        num_channels = feature_maps0.shape[0]
+        num_cols = min(8, num_channels)  # Number of columns in the visualization
+        num_rows = (num_channels + num_cols - 1) // num_cols
+        fig, axes = plt.subplots(num_rows, num_cols, figsize=(12, 12))
+
+        for i, ax in enumerate(axes.flatten()):
+            if i < num_channels:
+                ax.imshow(feature_maps0[i], cmap='viridis')
+                ax.set_title(f'Channel {i}, Feature Map 0')
+            ax.axis('off')
+
+        # Plot the feature maps
+        num_channels = feature_maps3.shape[0]
+        num_cols = min(8, num_channels)  # Number of columns in the visualization
+        num_rows = (num_channels + num_cols - 1) // num_cols
+        fig, axes = plt.subplots(num_rows, num_cols, figsize=(12, 12))
+
+        for i, ax in enumerate(axes.flatten()):
+            if i < num_channels:
+                ax.imshow(feature_maps3[i], cmap='viridis')
+                ax.set_title(f'Channel {i}, Feature Map 3')
+            ax.axis('off')
+
+        plt.tight_layout()
+        plt.show()
+

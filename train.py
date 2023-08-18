@@ -74,13 +74,13 @@ def train(image_dir: str, label:str):
         train_data, train_labels = shuffle(train_data, train_labels)
         for i in range(len(train_data)):
             img = cv2.imread(os.path.join(os.getcwd(), "train", "cats", train_data[i]))
-            image_resized = cv2.resize(img, (200, 200))
+            image_resized = cv2.resize(img, (100, 100))
             interactive_trainer.update(image_resized, train_labels[i])
 
         # validate at the end of each epoch
         for k in range(len(val_data)):
             img = cv2.imread(os.path.join(os.getcwd(), "train", "cats", val_data[k]))
-            image_resized = cv2.resize(img, (200, 200))
+            image_resized = cv2.resize(img, (100, 100))
             interactive_trainer.validate(image_resized, val_labels[k])
 
     interactive_trainer.plot_results()
