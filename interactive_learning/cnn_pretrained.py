@@ -7,52 +7,36 @@ import torch.utils.data as data
 import torchvision.transforms as transforms
 from matplotlib import pyplot as plt, cm
 from torch.utils.tensorboard import SummaryWriter
+import torchvision.models as models
 
 
-class CNN(nn.Module):
+class CNNPretrained(nn.Module):
     # Defining the CNN architecture
 
     def __init__(self):
-        super(CNN, self).__init__()
+        super(CNNPretrained, self).__init__()
+        self.model = models.vgg16(pretrained=True)
+        print(self.model._modules.keys())
 
-        # Convolutional layers for feature extraction
-        self.conv_layers = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Conv2d(in_channels=16, out_channels=16, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-        )
-
-        # Fully connected layers for regression
-        self.fc_layers = nn.Sequential(
-            # 25 * 25 is the number of pixels in the image after 2 pooling layers
-            nn.Linear(in_features=16 * 25 * 25, out_features=4),
-            nn.ReLU(),
-            nn.Linear(4, 4),
-        )
-
-        self.fc_layers_output = nn.Sequential(
-            nn.Linear(in_features=4, out_features=1),
-        )
+        in_features = self.model._modules['classifier'][-1].in_features
+        out_features = 1
+        self.model._modules['classifier'][-1] = nn.Linear(in_features, out_features, bias=True)
+        print(self.model._modules['features'])
+        print(self.model._modules['classifier'])
 
     def forward(self, x):
-        # Forward pass through layers
-        x = self.conv_layers(x)
-        x = x.view(x.size(0), -1)
-        x = self.fc_layers(x)
-        x = self.fc_layers_output(x)
-        return x
+        return self.model.forward(x)
 
 
 class ImageDataset(data.Dataset):
 
     def __init__(self, transform=None):
-        self.data = []  # TODO: change to dict where key is path to image and value is delta
+        self.data = []
+        # normalize the images to imagenet mean and std
         self.transform = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Resize((100, 100), antialias=None),  # Transformation for model that was trained on ImageNet
+            transforms.Resize((224, 224), antialias=None),  # Transformation for model that was trained on ImageNet
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # Transformation for model that was trained on ImageNet
         ])
 
     def __len__(self):
@@ -65,12 +49,11 @@ class ImageDataset(data.Dataset):
         self.data.append((self.transform(image), np.float32(delta)))
 
 
-
 class CNNTrainer:
 
     def __init__(self):
         self.batches = 0
-        self.model = CNN()
+        self.model = CNNPretrained()
         # optimizer
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=0.001, momentum=0.9)
         self.criterion = nn.MSELoss()
@@ -112,7 +95,7 @@ class CNNTrainer:
                 plt.imshow(heatmap[0], cmap='hot', alpha=0.4, interpolation='nearest')
                 plt.axis('off')
                 # Save the blended image with heatmap overlay
-                plt.savefig(f'result_images/{self.batches}_gradient_image.png')
+                plt.savefig(f'result_images_pretrained/{self.batches}_gradient_image.png')
                 plt.clf()
 
             # clip gradients to prevent exploding gradients
@@ -123,11 +106,6 @@ class CNNTrainer:
             last_loss = loss.item()
             # Log validation loss to TensorBoard
             self.writer.add_scalar('output/ validation', outputs.squeeze()[0], self.batches)
-
-            # Analyze feature maps for a specific input after training
-            if visualize:  # To analyze feature maps every 10 batches, adjust as needed
-                self.analyze_feature_maps(inputs[0])
-                pass
 
         avg_loss = running_loss / len(trainloader)
         avg_absolute_error = mean_absolute_error / len(trainloader)
@@ -182,61 +160,3 @@ class CNNTrainer:
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         model_path = 'models/interactive_model_{}.pth'.format(timestamp, self.batches)
         torch.save(self.model.state_dict(), model_path)
-
-    def analyze_feature_maps(self, inputs):
-        # Set the model to evaluation mode
-        self.model.eval()
-        feature_maps = []
-
-        # Choose a convolutional layer for analysis (e.g., the first convolutional layer)
-        target_layer = self.model.conv_layers[0]
-        second_layer = self.model.conv_layers[1]
-        third_layer = self.model.conv_layers[2]
-        fourth_layer = self.model.conv_layers[3]
-        fifth_layer = self.model.conv_layers[4]
-
-        # Forward pass to get feature maps
-        with torch.no_grad():
-            feature_maps.append(target_layer(inputs))
-            feature_maps.append(second_layer(feature_maps[0]))
-            feature_maps.append(third_layer(feature_maps[1]))
-            feature_maps.append(fourth_layer(feature_maps[2]))
-            feature_maps.append(fifth_layer(feature_maps[3]))
-
-        # Convert the feature maps that should be depicted to numpy arrays
-        feature_maps0 = feature_maps[0].squeeze().cpu().numpy()
-        feature_maps3 = feature_maps[3].squeeze().cpu().numpy()
-
-        # Plot the feature maps
-        num_channels = feature_maps0.shape[0]
-        num_cols = min(8, num_channels)  # Number of columns in the visualization
-        num_rows = (num_channels + num_cols - 1) // num_cols
-        fig0, axes0 = plt.subplots(num_rows, num_cols, figsize=(12, 12))
-
-        fig0.suptitle('Feature Map  0', fontsize=16)
-        for i, ax in enumerate(axes0.flatten()):
-            if i < num_channels:
-                ax.imshow(feature_maps0[i], cmap='viridis')
-                ax.set_title(f'Channel {i}')
-            ax.axis('off')
-        plt.savefig(f'result_images/{self.batches}_featureMaps0.png')
-        plt.clf()
-
-        # Plot the feature maps
-        num_channels = feature_maps3.shape[0]
-        num_cols = min(8, num_channels)  # Number of columns in the visualization
-        num_rows = (num_channels + num_cols - 1) // num_cols
-        fig3, axes3 = plt.subplots(num_rows, num_cols, figsize=(12, 12))
-
-        fig3.suptitle('Feature Map 3', fontsize=16)
-        for i, ax in enumerate(axes3.flatten()):
-            if i < num_channels:
-                ax.imshow(feature_maps3[i], cmap='viridis')
-                ax.set_title(f'Channel {i}')
-            ax.axis('off')
-
-        plt.tight_layout()
-        # Save the feature map
-        plt.savefig(f'result_images/{self.batches}_featureMaps3.png')
-        plt.clf()
-        self.model.train()
