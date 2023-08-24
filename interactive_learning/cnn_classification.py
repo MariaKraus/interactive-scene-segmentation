@@ -1,6 +1,5 @@
 import os
 from datetime import datetime
-
 import cv2
 import numpy as np
 import torch
@@ -11,10 +10,6 @@ from matplotlib import pyplot as plt, cm
 from torch.utils.tensorboard import SummaryWriter
 import torchvision.models as models
 from torchvision.models import VGG16_Weights
-
-
-#### 1 add CAM
-#### 2 add custom loss function
 
 class CNNClassification(nn.Module):
     # Defining the CNN architecture
@@ -129,15 +124,18 @@ class CNNTrainer:
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=0.001, momentum=0.9)
         # Change to cross entropy loss
         self.criterion = ProximityLoss(num_classes=18, proximity_weight=0.5, proximity_threshold=2)
+        self.cross_entropy_criterion = nn.CrossEntropyLoss()
         self.losses = []
         # Initialize TensorBoard writer
         self.writer = SummaryWriter()
-        self.visualize_iteration = 200
+        self.visualize_iteration = 50
 
     def train_one_batch(self, trainloader):
         running_loss = 0.0
         correct_predictions = 0  # Counter for correct predictions
         total_predictions = 0  # Counter for total predictions
+        total_distance_to_label = 0
+        total_cross_entropy_loss = 0
         visualize = self.batches % self.visualize_iteration == 0
 
         for i, batch in enumerate(trainloader, 0):
@@ -148,11 +146,13 @@ class CNNTrainer:
             loss.backward()
             self.optimizer.step()
             running_loss += loss.item()
-            # Log validation loss to TensorBoard
+            total_cross_entropy_loss = self.cross_entropy_criterion(outputs.squeeze(), labels.squeeze().long()).item()
             # Calculate accuracy
             predicted_labels = outputs.argmax(dim=1)  # Get the predicted class labels
             correct_predictions += (predicted_labels == labels).sum().item()
             total_predictions += labels.size(0)
+            # Calculate the distance between the predicted and true labels
+            total_distance_to_label += torch.abs(predicted_labels - labels.squeeze())
 
             # Visualize gradients
             if visualize:
@@ -207,14 +207,18 @@ class CNNTrainer:
                 self.model.set_cam(False)
                 # GRAD CAM END #
 
-        avg_loss = running_loss / len(trainloader)
+        avg_custom_loss = running_loss / len(trainloader)
         accuracy = correct_predictions / total_predictions  # Calculate accuracy
+        avg_distance_to_label = total_distance_to_label / len(trainloader)  # Calculate average distance to label
+        avg_cross_entropy_loss = total_cross_entropy_loss / len(trainloader)  # Calculate average cross entropy loss
 
         # Log loss to TensorBoard
-        self.writer.add_scalar('Cross Entropy Loss/ train', avg_loss, self.batches)
+        self.writer.add_scalar('Cross Entropy Loss/ train', avg_cross_entropy_loss, self.batches)
+        self.writer.add_scalar('Custom Entropy Loss/ train', avg_custom_loss, self.batches)
         self.writer.add_scalar('Accuracy/ train', accuracy, self.batches)
+        self.writer.add_scalar('Distance/ train', avg_distance_to_label, self.batches)
 
-        return avg_loss
+        return avg_custom_loss
 
     def update(self, image, delta):
         # train one batch at a time
@@ -228,8 +232,13 @@ class CNNTrainer:
         self.losses.append(loss)
 
     def validate(self, image, delta):
+        self.model.eval()
         delta = delta / 2
         val_loss = 0.0
+        cross_entropy_loss = 0.0
+        correct_predictions = 0  # Counter for correct predictions
+        total_predictions = 0  # Counter for total predictions
+        total_distance_to_label = 0
         validation_set = ImageDataset()
         validation_set.add_image(image, delta)
         validation_loader = data.DataLoader(validation_set, batch_size=1, num_workers=1)
@@ -240,8 +249,23 @@ class CNNTrainer:
                 outputs = self.model(inputs)
                 loss = self.criterion(outputs, labels.squeeze().long())
                 val_loss += loss.item()
+                cross_entropy_loss += self.cross_entropy_criterion(outputs.squeeze(), labels.squeeze().long())
+                # Calculate accuracy
+                predicted_labels = outputs.argmax(dim=1)  # Get the predicted class labels
+                correct_predictions += (predicted_labels == labels).sum().item()
+                total_predictions += labels.size(0)
+                # Calculate the distance between the predicted and true labels
+                total_distance_to_label = torch.abs(predicted_labels - labels.squeeze())
 
-        self.writer.add_scalar('Cross Entropy Loss/ validation', val_loss / len(validation_set), self.batches)
+        accuracy = correct_predictions / total_predictions  # Calculate accuracy
+        avg_distance_to_label = total_distance_to_label / len(validation_loader)  # Calculate average distance to label
+        avg_cross_entropy_loss = cross_entropy_loss / len(validation_loader)
+        avg_custom_loss = val_loss / len(validation_loader)
+
+        self.writer.add_scalar('Cross Entropy Loss/ validation', avg_cross_entropy_loss, self.batches)
+        self.writer.add_scalar('Custom Entropy Loss/ validation', avg_custom_loss, self.batches)
+        self.writer.add_scalar('Accuracy/ validation', accuracy, self.batches)
+        self.writer.add_scalar('Distance/ validation', avg_distance_to_label, self.batches)
 
     def plot_results(self):
         # Plot loss over epochs
