@@ -1,5 +1,7 @@
 import os
 from datetime import datetime
+
+import cv2
 import numpy as np
 import torch
 import torch.nn as nn
@@ -16,8 +18,6 @@ class CNNPretrained(nn.Module):
     def __init__(self):
         super(CNNPretrained, self).__init__()
         self.model = models.vgg16(pretrained=True)
-        print(self.model._modules.keys())
-
         in_features = self.model._modules['classifier'][-1].in_features
         out_features = 1
         self.model._modules['classifier'][-1] = nn.Linear(in_features, out_features, bias=True)
@@ -67,6 +67,7 @@ class CNNTrainer:
         running_loss = 0.0
         last_loss = 0.0
         mean_absolute_error = 0.0
+        total_distance_to_label = 0.0
         visualize = self.batches % self.visualize_iteration == 0
 
         for i, batch in enumerate(trainloader, 0):
@@ -80,6 +81,7 @@ class CNNTrainer:
             outputs = self.model(inputs)
             loss = self.criterion(outputs.squeeze(), labels.squeeze())
             mean_absolute_error += self.mae(outputs.squeeze(), labels.squeeze()).item()
+            total_distance_to_label += torch.abs(outputs.squeeze() - labels.squeeze())
             loss.backward()
 
             # Visualize gradients
@@ -87,36 +89,50 @@ class CNNTrainer:
                 gradients = inputs.grad
                 # Plot the magnitude of gradients as a heatmap
                 gradient_magnitude = gradients.norm(dim=1, keepdim=True)  # Calculate gradient magnitude
-                heatmap = gradient_magnitude[0].cpu().detach().numpy()  # Convert to numpy array
+                heatmap = gradient_magnitude[0]
+                heatmap = np.maximum(heatmap, 0)
+                # normalize the heatmap
+                heatmap /= torch.max(heatmap)
+                # draw the heatmap
+                heatmap = heatmap.cpu().detach().numpy()
+                heatmap = heatmap.squeeze()
+                # revert the normalization
+                img = transforms.Normalize(
+                    mean=[-0.485 / 0.229, -0.456 / 0.224, -0.406 / 0.225],
+                    std=[1 / 0.229, 1 / 0.224, 1 / 0.225]
+                )(inputs)
+                img = img.squeeze().cpu().detach().numpy()
+                # transform to rgb image
+                img = np.uint8(255 * img)
+                # convert the heatmap to RGB
+                heatmap = np.uint8(255 * heatmap)
 
-                # Plot the original input image
-                plt.imshow(transforms.ToPILImage()(inputs[0].cpu().detach()), cmap='gray')
-
-                plt.imshow(heatmap[0], cmap='hot', alpha=0.4, interpolation='nearest')
-                plt.axis('off')
-                # Save the blended image with heatmap overlay
-                plt.savefig(f'result_images_pretrained/{self.batches}_gradient_image.png')
-                plt.clf()
+                heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+                # combine the heatmap with the original image
+                superimposed_img = heatmap * 0.6 + img.transpose(1, 2, 0)
+                # save the image to disk
+                cv2.imwrite(f'result_images_pretrained/{self.batches}_map.jpg', superimposed_img)
+                cv2.imwrite(f'result_images_pretrained/{self.batches}_img.jpg', img.transpose(1, 2, 0))
 
             # clip gradients to prevent exploding gradients
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 10)
             self.optimizer.step()
-
             running_loss += loss.item()
-            last_loss = loss.item()
-            # Log validation loss to TensorBoard
-            self.writer.add_scalar('output/ validation', outputs.squeeze()[0], self.batches)
 
         avg_loss = running_loss / len(trainloader)
         avg_absolute_error = mean_absolute_error / len(trainloader)
+        avg_distance_to_label = total_distance_to_label / len(trainloader)
 
         # Log loss to TensorBoard
         self.writer.add_scalar('MSE Loss/ train', avg_loss, self.batches)
         self.writer.add_scalar('Avg Absolute Error/ train', avg_absolute_error, self.batches)
+        self.writer.add_scalar('Distance/ train', avg_distance_to_label, self.batches)
+
 
         return avg_loss
 
     def update(self, image, delta):
+        self.model.train()
         # train one batch at a time
         self.batches += 1
         dataset = ImageDataset()
@@ -126,6 +142,7 @@ class CNNTrainer:
         self.losses.append(loss)
 
     def validate(self, image, delta):
+        self.model.eval()
         val_loss = 0.0
         mean_absolute_error = 0.0
         validation_set = ImageDataset()
