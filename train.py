@@ -68,16 +68,7 @@ def train(image_dir: str, label: str, model: int, augmentations: int, epochs : i
     names = []
     numbers = []
     # Read the text file line by line
-    with open(os.getcwd() + "/label_hamburg.txt", 'r') as file:
-        lines = file.readlines()
-        for line in lines:
-            parts = line.strip().split(',')
-            if len(parts) == 2:
-                names.append(parts[0])
-                numbers.append(int(parts[1]))
-
-    # Read the text file line by line
-    with open(os.getcwd() + "/label_cats.txt", 'r') as file:
+    with open(label, 'r') as file:
         lines = file.readlines()
         for line in lines:
             parts = line.strip().split(',')
@@ -90,7 +81,7 @@ def train(image_dir: str, label: str, model: int, augmentations: int, epochs : i
 
     # Load the images and augment them
     for i in tqdm(range(len(names)), desc="Loading and Augmenting Images", unit="image"):
-        img = cv2.imread(os.path.join(os.getcwd(), "train", "cats", names[i]))
+        img = cv2.imread(os.path.join(image_dir, names[i]))
         # resize otherwise it takes too long
         img = cv2.resize(img, (224, 224))
         data.append(img)
@@ -106,7 +97,7 @@ def train(image_dir: str, label: str, model: int, augmentations: int, epochs : i
     # Train the model for a fixed numer of epochs
     epochs = epochs
     for ep in range(epochs):
-        print("Epoch: \n", ep)
+        print("\nEpoch:", ep)
         train_data, train_labels = shuffle(train_data, train_labels)
         for i in tqdm(range(len(train_data)), desc="training", unit="image"):
             interactive_trainer.update(train_data[i], train_labels[i])
@@ -121,15 +112,15 @@ def train(image_dir: str, label: str, model: int, augmentations: int, epochs : i
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Interactive Scene Segmentation")
-    parser.add_argument("--i_dir", type=str, default=os.getcwd() + "/train/ulm/",
+    parser.add_argument("--i_dir", type=str, default=os.getcwd() + "/train/random/random_images/",
                         help="The directory with the training images")
-    parser.add_argument("--label", type=str, default=os.getcwd() + "/label.txt",
+    parser.add_argument("--label", type=str, default=os.getcwd() + "/train/random/label.txt",
                         help="The directory with the training labels")
-    parser.add_argument("--model", type=int, default=3,  # 1 = cnn, 2 = vgg16, 3 = classifier
+    parser.add_argument("--model", type=int, default=2,  # 1 = cnn, 2 = vgg16, 3 = classifier
                         help="The model to use for training")
-    parser.add_argument("--augmentations", type=int, default=5,
+    parser.add_argument("--augmentations", type=int, default=0,
                         help="The number of augmentations to use for training")
-    parser.add_argument("--epochs", type=int, default=5,
+    parser.add_argument("--epochs", type=int, default=10,
                         help="The number of augmentations to use for training")
 
     args = parser.parse_args()
