@@ -4,7 +4,6 @@ import numpy as np
 
 drawing = False
 
-
 # Mouse callback function
 def mouse_callback(event, x, y, flags, param):
     (selection_type, selected_points) = param
@@ -42,6 +41,9 @@ def mouse_callback(event, x, y, flags, param):
         if event == cv2.EVENT_RBUTTONDOWN:
             selected_points.pop()
 
+def write_number_to_file(filename, number, name):
+    with open(filename, 'a') as file:
+        file.write(name + "," + str(number) + "\n")
 
 def keyboard_callback(event, param):
     """
@@ -50,7 +52,7 @@ def keyboard_callback(event, param):
     :param param: param = sam, base_image, masked_image, masks, selection_type, selected_points, selected_masks, interactive_trainer
     :return: param = sam, base_image, masked_image, masks, selection_type, selected_points, selected_masks, interactive_trainer
     """
-    (model, base_image, _, _, _, _, _, model_parameters, interactive_trainer) = param
+    (model, base_image, _, _, _, _, _, model_parameters, interactive_trainer, name) = param
     param = list(param)
 
     if event == 13:  # Check if the key is the "Enter" key (key code 13)
@@ -92,7 +94,7 @@ def keyboard_callback(event, param):
         points_per_side, _, _ = model.parameters
         image_resized = cv2.resize(base_image, (100, 100))
         # cv2.imwrite("segmentation_image.png", base_image)
-
+        write_number_to_file('label_hamburg.txt', points_per_side, name)
         interactive_trainer.update(image_resized, points_per_side)
 
     if event == 119:  # w = arrow up, segment finer
@@ -130,7 +132,7 @@ def keyboard_callback(event, param):
 
 # Function to handle keyboard events
 def get_selected_area_pixels(param):
-    _, base_image, _, _, selection_type, selected_points, selected_masks, _, _ = param
+    _, base_image, _, _, selection_type, selected_points, selected_masks, _, _, _ = param
     selected_area = base_image.copy()
     bounding_box = []
 
@@ -225,10 +227,12 @@ def load_images(directory: str):
     # Read image from user input
     directory_path = ""
     images = []
+    file_names = []
     # directory exists
     while not images:
-        for filename in os.listdir(directory):
+        for filename in sorted(os.listdir(directory)):
             img = cv2.imread(os.path.join(directory, filename))
+            file_names.append(filename)
             if img is not None:
                 images.append(img)
-    return images
+    return images, file_names

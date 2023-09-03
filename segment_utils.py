@@ -59,8 +59,11 @@ class SegmentAnything:
 
 
     def segment_coarser(self, image, parameters):
-        self.parameters[0] = self.parameters[0] - 2
-        print("segment coarser with ", parameters[0], " points per side")
+        if self.parameters[0] > 4:
+            self.parameters[0] = self.parameters[0] - 2
+            print("segment coarser with ", parameters[0], " points per side")
+        else:
+            print("already at coarsest level")
         self.mask_generator = SamAutomaticMaskGenerator(
             model=self.sam,
             points_per_side=parameters[0] - 2,
@@ -112,7 +115,7 @@ class SegmentAnything:
         stability_score_thresh = np.random.normal(0.5, 0.1)
 
         # Ensure parameters are within valid range
-        points_per_side = min(max(points_per_side, 2), 40)
+        points_per_side = min(max(points_per_side, 4), 40)
         pred_iou_thresh = max(min(pred_iou_thresh, 1.0), 0.0)
         stability_score_thresh = max(min(stability_score_thresh, 1.0), 0.0)
 
@@ -120,4 +123,4 @@ class SegmentAnything:
         #print("pred_iou_tresh", pred_iou_thresh)
         #print("stability_score_thresh", stability_score_thresh)
 
-        return points_per_side, pred_iou_thresh, stability_score_thresh
+        return 12, pred_iou_thresh, stability_score_thresh
