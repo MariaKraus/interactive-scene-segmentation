@@ -10,6 +10,7 @@ import torchvision.transforms as transforms
 from matplotlib import pyplot as plt, cm
 from torch.utils.tensorboard import SummaryWriter
 import torchvision.models as models
+from torchvision.models import VGG16_Weights
 
 
 class CNNPretrained(nn.Module):
@@ -17,7 +18,7 @@ class CNNPretrained(nn.Module):
 
     def __init__(self):
         super(CNNPretrained, self).__init__()
-        self.model = models.vgg16(pretrained=True)
+        self.model = models.vgg16(weights=VGG16_Weights.DEFAULT)
         in_features = self.model._modules['classifier'][-1].in_features
         out_features = 1
         self.model._modules['classifier'][-1] = nn.Linear(in_features, out_features, bias=True)
@@ -61,7 +62,7 @@ class CNNTrainer:
         self.losses = []
         # Initialize TensorBoard writer
         self.writer = SummaryWriter()
-        self.visualize_iteration = 20
+        self.visualize_iteration = 50
 
     def train_one_batch(self, trainloader):
         running_loss = 0.0
@@ -145,6 +146,7 @@ class CNNTrainer:
         self.model.eval()
         val_loss = 0.0
         mean_absolute_error = 0.0
+        total_distance_to_label = 0.0
         validation_set = ImageDataset()
         validation_set.add_image(image, delta)
         validation_loader = data.DataLoader(validation_set, batch_size=1, num_workers=1)
@@ -155,10 +157,14 @@ class CNNTrainer:
                 loss = self.criterion(outputs.squeeze(), labels.squeeze())
                 val_loss += loss.item()
                 mean_absolute_error += self.mae(outputs.squeeze(), labels.squeeze()).item()
+                total_distance_to_label += torch.abs(outputs.squeeze() - labels.squeeze())
 
-        self.writer.add_scalar('MSE Loss/ validation', val_loss / len(validation_set), self.batches)
-        self.writer.add_scalar('Avg Absolute Error/ valdiation', mean_absolute_error / len(validation_set),
+        avg_distance_to_label = total_distance_to_label / len(validation_loader)
+        self.writer.add_scalar('MSE Loss/ validation', val_loss / len(validation_loader), self.batches)
+        self.writer.add_scalar('Avg Absolute Error/ validation', mean_absolute_error / len(validation_loader),
                                self.batches)
+        self.writer.add_scalar('Distance/ validation', avg_distance_to_label, self.batches)
+
 
     def plot_results(self):
         # Plot loss over epochs
