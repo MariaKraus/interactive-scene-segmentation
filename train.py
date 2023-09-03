@@ -76,23 +76,34 @@ def train(image_dir: str, label: str, model: int, augmentations: int, epochs : i
                 names.append(parts[0])
                 numbers.append(int(parts[1]))
 
-    # Split the data into training and validation sets
-    data, labels = [], []
+    train_data = []
+    train_labels = []
+    val_data = []
+    val_labels = []
 
-    # Load the images and augment them
-    for i in tqdm(range(len(names)), desc="Loading and Augmenting Images", unit="image"):
-        img = cv2.imread(os.path.join(image_dir, names[i]))
+    # Split the data into training and validation sets
+    train_names, val_names, train_numbers, val_numbers = train_test_split(names, numbers, test_size=0.2, random_state=42)
+
+    # Load the training images and augment them
+    for i in tqdm(range(len(train_names)), desc="Loading and Augmenting Images", unit="image"):
+        img = cv2.imread(os.path.join(image_dir, train_names[i]))
         # resize otherwise it takes too long
         img = cv2.resize(img, (224, 224))
-        data.append(img)
-        labels.append(numbers[i])
+        train_data.append(img)
+        train_labels.append(train_numbers[i])
         for j in range(augmentations):
             img_augmented = apply_custom_transform(img)
-            data.append(img_augmented)
-            labels.append(numbers[i])
+            train_data.append(img_augmented)
+            train_labels.append(train_numbers[i])
 
-    # Split the data into training and validation sets
-    train_data, val_data, train_labels, val_labels = train_test_split(data, labels, test_size=0.2, random_state=42)
+    # Load the validation images
+    for n in tqdm(range(len(val_names)), desc="Loading and Augmenting Images", unit="image"):
+        img = cv2.imread(os.path.join(image_dir, val_names[n]))
+        # resize otherwise it takes too long
+        img = cv2.resize(img, (224, 224))
+        val_data.append(img)
+        val_labels.append(val_numbers[n])
+
 
     # Train the model for a fixed numer of epochs
     epochs = epochs
@@ -102,6 +113,7 @@ def train(image_dir: str, label: str, model: int, augmentations: int, epochs : i
         for i in tqdm(range(len(train_data)), desc="training", unit="image"):
             interactive_trainer.update(train_data[i], train_labels[i])
 
+        val_data, val_labels = shuffle(val_data, val_labels)
         # validate at the end of each epoch
         for k in tqdm(range(len(val_data)), desc="validation", unit="image"):
             interactive_trainer.validate(val_data[k], val_labels[k])
@@ -116,9 +128,9 @@ if __name__ == "__main__":
                         help="The directory with the training images")
     parser.add_argument("--label", type=str, default=os.getcwd() + "/train/random/label.txt",
                         help="The directory with the training labels")
-    parser.add_argument("--model", type=int, default=2,  # 1 = cnn, 2 = vgg16, 3 = classifier
+    parser.add_argument("--model", type=int, default=3,  # 1 = cnn, 2 = vgg16, 3 = classifier
                         help="The model to use for training")
-    parser.add_argument("--augmentations", type=int, default=0,
+    parser.add_argument("--augmentations", type=int, default=15,
                         help="The number of augmentations to use for training")
     parser.add_argument("--epochs", type=int, default=10,
                         help="The number of augmentations to use for training")

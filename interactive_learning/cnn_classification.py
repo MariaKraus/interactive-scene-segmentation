@@ -216,7 +216,7 @@ class CNNTrainer:
         self.writer.add_scalar('Cross Entropy Loss/ train', avg_cross_entropy_loss, self.batches)
         self.writer.add_scalar('Custom Entropy Loss/ train', avg_custom_loss, self.batches)
         self.writer.add_scalar('Accuracy/ train', accuracy, self.batches)
-        self.writer.add_scalar('Distance/ train', avg_distance_to_label, self.batches)
+        self.writer.add_scalar('Distance/ train', avg_distance_to_label * 2, self.batches)
 
         return avg_custom_loss
 
@@ -265,7 +265,7 @@ class CNNTrainer:
         self.writer.add_scalar('Cross Entropy Loss/ validation', avg_cross_entropy_loss, self.batches)
         self.writer.add_scalar('Custom Entropy Loss/ validation', avg_custom_loss, self.batches)
         self.writer.add_scalar('Accuracy/ validation', accuracy, self.batches)
-        self.writer.add_scalar('Distance/ validation', avg_distance_to_label, self.batches)
+        self.writer.add_scalar('Distance/ validation', avg_distance_to_label * 2, self.batches)
 
     def plot_results(self):
         # Plot loss over epochs
