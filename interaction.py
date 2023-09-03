@@ -1,6 +1,8 @@
 import os
 import cv2
 import numpy as np
+from skimage.filters.rank import entropy
+from skimage.morphology import disk
 
 drawing = False
 
@@ -92,9 +94,14 @@ def keyboard_callback(event, param):
         param[1] = None
 
         points_per_side, _, _ = model.parameters
+        #convert base image to grayscale
+        greyscaled = cv2.cvtColor(base_image, cv2.COLOR_BGR2GRAY)
+        print("image entropy:", entropy(greyscaled, disk(5)).mean())
+
+
         image_resized = cv2.resize(base_image, (100, 100))
         # cv2.imwrite("segmentation_image.png", base_image)
-        write_number_to_file('label_hamburg.txt', points_per_side, name)
+        write_number_to_file('label_images.txt', points_per_side, name)
         interactive_trainer.update(image_resized, points_per_side)
 
     if event == 119:  # w = arrow up, segment finer

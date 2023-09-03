@@ -3,7 +3,7 @@ import argparse
 from interaction import *
 from segment_utils import SegmentAnything
 from interactive_learning import cnn
-
+from skimage.filters.rank import entropy
 
 #  /Users/danielbosch/Downloads/tools.jpg
 # E:\Projects\interactive-scene-segmentation\test\desk.jpg
@@ -40,7 +40,8 @@ def main(directory: str, selection_type: str):
                 name = file_names.pop(0)
                 masks = sam.segment_image(base_image)
                 masked_image = sam.show_masks(base_image, masks)
-            except:
+            except Exception as e:
+                print(e)
                 print("Last image in directory, training is over")
                 cv2.destroyAllWindows()
                 exit(0)
@@ -82,7 +83,7 @@ def main(directory: str, selection_type: str):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Interactive Scene Segmentation")
-    parser.add_argument("--dir", type=str, default=os.getcwd() + "/train/hamburg/",
+    parser.add_argument("--dir", type=str, default=os.getcwd() + "/train/images/",
                         help="The directory with the training images")
     parser.add_argument("--interaction", type=str, default="point",
                         help="The interaction type: point, area or polygon")
