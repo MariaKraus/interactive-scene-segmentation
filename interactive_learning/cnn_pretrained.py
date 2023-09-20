@@ -54,6 +54,8 @@ class CNNTrainer:
 
     def __init__(self):
         self.batches = 0
+        self.validation_mse = []
+        self.validation_mae = []
         self.model = CNNPretrained()
         # optimizer
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=0.001, momentum=0.9)
@@ -122,17 +124,17 @@ class CNNTrainer:
 
         avg_loss = running_loss / len(trainloader)
         avg_absolute_error = mean_absolute_error / len(trainloader)
-        avg_distance_to_label = total_distance_to_label / len(trainloader)
 
         # Log loss to TensorBoard
         self.writer.add_scalar('MSE Loss/ train', avg_loss, self.batches)
-        self.writer.add_scalar('Avg Absolute Error/ train', avg_absolute_error, self.batches)
-        self.writer.add_scalar('Distance/ train', avg_distance_to_label, self.batches)
+        self.writer.add_scalar('MAE Loss/ train', avg_absolute_error, self.batches)
 
 
         return avg_loss
 
     def update(self, image, delta):
+        image = np.nan_to_num(image, nan=0.0)
+        image[np.isinf(image)] = 0.0
         self.model.train()
         # train one batch at a time
         self.batches += 1
@@ -143,6 +145,8 @@ class CNNTrainer:
         self.losses.append(loss)
 
     def validate(self, image, delta):
+        image = np.nan_to_num(image, nan=0.0)
+        image[np.isinf(image)] = 0.0
         self.model.eval()
         val_loss = 0.0
         mean_absolute_error = 0.0
@@ -153,18 +157,24 @@ class CNNTrainer:
         with torch.no_grad():
             for i, val_data in enumerate(validation_loader, 0):
                 inputs, labels = val_data
+                inputs[torch.isnan(inputs)] = 0
+                inputs[torch.isinf(inputs)] = 0
                 outputs = self.model(inputs)
+                outputs[torch.isnan(outputs)] = 0
+                outputs[torch.isinf(outputs)] = 0
                 loss = self.criterion(outputs.squeeze(), labels.squeeze())
                 val_loss += loss.item()
                 mean_absolute_error += self.mae(outputs.squeeze(), labels.squeeze()).item()
-                total_distance_to_label += torch.abs(outputs.squeeze() - labels.squeeze())
 
-        avg_distance_to_label = total_distance_to_label / len(validation_loader)
-        self.writer.add_scalar('MSE Loss/ validation', val_loss / len(validation_loader), self.batches)
-        self.writer.add_scalar('Avg Absolute Error/ validation', mean_absolute_error / len(validation_loader),
-                               self.batches)
-        self.writer.add_scalar('Distance/ validation', avg_distance_to_label, self.batches)
+        self.validation_mse.append(val_loss / len(validation_loader))
+        self.validation_mae.append(mean_absolute_error / len(validation_loader))
 
+    def log_validation(self):
+        print("Logs validation")
+        self.writer.add_scalar('Avg MSE Loss/ validation', sum(self.validation_mse) / len(self.validation_mse), self.batches)
+        self.writer.add_scalar('Avg MAE Loss/ validation', sum(self.validation_mae) / len(self.validation_mae), self.batches)
+        self.validation_mse = []
+        self.validation_mae = []
 
     def plot_results(self):
         # Plot loss over epochs
@@ -181,5 +191,5 @@ class CNNTrainer:
             os.makedirs(path)
         # save model
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        model_path = 'models/interactive_model_{}.pth'.format(timestamp, self.batches)
+        model_path = 'models/interactive_model_pretrained{}.pth'.format(timestamp, self.batches)
         torch.save(self.model.state_dict(), model_path)

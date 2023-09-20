@@ -18,7 +18,6 @@ def apply_custom_transform(image):
         transforms.RandomRotation(15),
         transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.5),
         transforms.RandomGrayscale(),
-        transforms.GaussianBlur(3),
     ])
 
     transformed_image = transform(image)
@@ -117,6 +116,7 @@ def train(image_dir: str, label: str, model: int, augmentations: int, epochs : i
         # validate at the end of each epoch
         for k in tqdm(range(len(val_data)), desc="validation", unit="image"):
             interactive_trainer.validate(val_data[k], val_labels[k])
+        interactive_trainer.log_validation()
 
     interactive_trainer.plot_results()
     interactive_trainer.save_model()
@@ -124,13 +124,13 @@ def train(image_dir: str, label: str, model: int, augmentations: int, epochs : i
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Interactive Scene Segmentation")
-    parser.add_argument("--i_dir", type=str, default=os.getcwd() + "/train/random/random_images/",
+    parser.add_argument("--i_dir", type=str, default=os.getcwd() + "/train/coco/test2014/",
                         help="The directory with the training images")
-    parser.add_argument("--label", type=str, default=os.getcwd() + "/train/random/label.txt",
+    parser.add_argument("--label", type=str, default=os.getcwd() + "/train/coco/label.txt",
                         help="The directory with the training labels")
-    parser.add_argument("--model", type=int, default=3,  # 1 = cnn, 2 = vgg16, 3 = classifier
+    parser.add_argument("--model", type=int, default=2,  # 1 = cnn, 2 = vgg16, 3 = classifier
                         help="The model to use for training")
-    parser.add_argument("--augmentations", type=int, default=15,
+    parser.add_argument("--augmentations", type=int, default=0,
                         help="The number of augmentations to use for training")
     parser.add_argument("--epochs", type=int, default=10,
                         help="The number of augmentations to use for training")

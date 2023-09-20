@@ -90,41 +90,18 @@ class ImageDataset(data.Dataset):
     def add_image(self, image, delta):
         self.data.append((self.transform(image), np.float32(delta)))
 
-
-class ProximityLoss(nn.Module):
-    """
-    Custom loss function that combines cross-entropy loss and proximity loss
-    """
-
-    def __init__(self, num_classes, proximity_weight=0.3, proximity_threshold=2):
-        super(ProximityLoss, self).__init__()
-        self.num_classes = num_classes
-        self.proximity_weight = proximity_weight
-        self.proximity_threshold = proximity_threshold
-
-    def forward(self, predicted_logits, true_labels):
-        # Calculate the cross-entropy loss
-        cross_entropy_loss = nn.CrossEntropyLoss()(predicted_logits.squeeze(), true_labels)
-        # Calculate the proximity loss based on the difference between predicted and true classes
-        class_diff = torch.abs(predicted_logits.argmax(dim=1) - true_labels)
-        # if the difference is less than the threshold, multiply by the weight, otherwise leave as is
-        proximity_loss = torch.where(class_diff <= self.proximity_threshold, class_diff * self.proximity_weight,
-                                     class_diff)
-        # Combine cross-entropy loss and proximity loss
-        combined_loss = cross_entropy_loss + proximity_loss.mean()
-        return combined_loss
-
-
 class CNNTrainer:
 
     def __init__(self):
         self.batches = 0
+        self.validation_ce = []
+        self.validation_acc = []
+        self.validation_mae = []
         self.model = CNNClassification()
         # optimizer
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=0.001, momentum=0.9)
         # Change to cross entropy loss
-        self.criterion = ProximityLoss(num_classes=18, proximity_weight=0.5, proximity_threshold=2)
-        self.cross_entropy_criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.CrossEntropyLoss()
         self.losses = []
         # Initialize TensorBoard writer
         self.writer = SummaryWriter()
@@ -133,20 +110,24 @@ class CNNTrainer:
     def train_one_batch(self, trainloader):
         running_loss = 0.0
         correct_predictions = 0  # Counter for correct predictions
-        total_predictions = 0  # Counter for total predictions
+        total_predictions = 1  # Counter for total predictions
         total_distance_to_label = 0
         total_cross_entropy_loss = 0
+        avg_custom_loss = 1
         visualize = self.batches % self.visualize_iteration == 0
 
         for i, batch in enumerate(trainloader, 0):
             inputs, labels = batch
+            inputs[torch.isnan(inputs)] = 0
+            inputs[torch.isinf(inputs)] = 0
             self.optimizer.zero_grad()
             outputs = self.model(inputs)
-            loss = self.criterion(outputs, labels.squeeze().long())
+            outputs[torch.isnan(outputs)] = 0
+            outputs[torch.isinf(outputs)] = 0
+            loss = self.criterion(outputs.squeeze(), labels.squeeze().long())
             loss.backward()
             self.optimizer.step()
             running_loss += loss.item()
-            total_cross_entropy_loss = self.cross_entropy_criterion(outputs.squeeze(), labels.squeeze().long()).item()
             # Calculate accuracy
             predicted_labels = outputs.argmax(dim=1)  # Get the predicted class labels
             correct_predictions += (predicted_labels == labels).sum().item()
@@ -156,50 +137,57 @@ class CNNTrainer:
 
             # Visualize gradients
             if visualize:
-                # GRAD CAM #
-                self.model.eval()
-                self.model.set_cam(True)
-                pred = self.model(inputs)
-                # get the gradient of the output with respect to the parameters of the model ?????????????
-                pred[:, int(labels[0].item())].backward()
-                # pull the gradients out of the model
-                gradients = self.model.get_activations_gradient()
-                # pool the gradients across the channels
-                pooled_gradients = torch.mean(gradients, dim=[0, 2, 3])
-                # get the activations of the last convolutional layer
-                activations = self.model.get_activations(inputs).detach()
-                # weight the channels by corresponding gradients
-                for i in range(512):
-                    activations[:, i, :, :] *= pooled_gradients[i]
-                # average the channels of the activations
-                heatmap = torch.mean(activations, dim=1).squeeze()
-                # relu on top of the heatmap
-                # expression (2) in https://arxiv.org/pdf/1610.02391.pdf
-                heatmap = np.maximum(heatmap, 0)
-                # normalize the heatmap
-                heatmap /= torch.max(heatmap)
-                # draw the heatmap
-                heatmap = heatmap.cpu().detach().numpy()
+                try:
+                    # GRAD CAM #
+                    self.model.eval()
+                    self.model.set_cam(True)
+                    pred = self.model(inputs)
+                    # get the gradient of the output with respect to the parameters of the model ?????????????
+                    pred[:, int(labels[0].item())].backward()
+                    # pull the gradients out of the model
+                    gradients = self.model.get_activations_gradient()
+                    # pool the gradients across the channels
+                    pooled_gradients = torch.mean(gradients, dim=[0, 2, 3])
+                    # get the activations of the last convolutional layer
+                    activations = self.model.get_activations(inputs).detach()
+                    # weight the channels by corresponding gradients
+                    for i in range(512):
+                        activations[:, i, :, :] *= pooled_gradients[i]
+                    # average the channels of the activations
+                    heatmap = torch.mean(activations, dim=1).squeeze()
+                    heatmap[torch.isnan(heatmap)] = 0
+                    heatmap[torch.isinf(heatmap)] = 0
+                    # relu on top of the heatmap
+                    # expression (2) in https://arxiv.org/pdf/1610.02391.pdf
+                    heatmap = np.maximum(heatmap, 0)
+                    # normalize the heatmap
+                    heatmap /= torch.max(heatmap)
+                    # draw the heatmap
+                    heatmap = heatmap.cpu().detach().numpy()
 
-                # revert the normalization
-                img = transforms.Normalize(
-                    mean=[-0.485 / 0.229, -0.456 / 0.224, -0.406 / 0.225],
-                    std=[1 / 0.229, 1 / 0.224, 1 / 0.225]
-                )(inputs)
+                    # revert the normalization
+                    img = transforms.Normalize(
+                        mean=[-0.485 / 0.229, -0.456 / 0.224, -0.406 / 0.225],
+                        std=[1 / 0.229, 1 / 0.224, 1 / 0.225]
+                    )(inputs)
 
-                img = img.squeeze().cpu().detach().numpy()
+                    img = img.squeeze().cpu().detach().numpy()
 
-                # transform to rgb image
-                img = np.uint8(255 * img)
-                # rezize the heatmap to have the same size as the image
-                heatmap = cv2.resize(heatmap, (img.shape[2], img.shape[2]))
-                # convert the heatmap to RGB
-                heatmap = np.uint8(255 * heatmap)
-                heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-                # combine the heatmap with the original image
-                superimposed_img = heatmap * 0.4 + img.transpose(1, 2, 0)
-                # save the image to disk
-                cv2.imwrite(f'result_images_classification/{self.batches}_map.jpg', superimposed_img)
+                    # transform to rgb image
+                    img = np.uint8(255 * img)
+                    # rezize the heatmap to have the same size as the image
+                    heatmap = cv2.resize(heatmap, (img.shape[2], img.shape[2]))
+                    # convert the heatmap to RGB
+
+                    heatmap = np.uint8(255 * heatmap)
+                    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+                    # combine the heatmap with the original image
+                    superimposed_img = heatmap * 0.4 + img.transpose(1, 2, 0)
+                    # save the image to disk
+                    cv2.imwrite(f'result_images_classification/{self.batches}_map.jpg', superimposed_img)
+                except RuntimeWarning as w:
+                    print(w)
+                    print("Error in heatmap creation")
                 cv2.imwrite(f'result_images_classification/{self.batches}_img.jpg', img.transpose(1, 2, 0))
 
                 # return into train mode
@@ -207,20 +195,20 @@ class CNNTrainer:
                 self.model.set_cam(False)
                 # GRAD CAM END #
 
-        avg_custom_loss = running_loss / len(trainloader)
-        accuracy = correct_predictions / total_predictions  # Calculate accuracy
-        avg_distance_to_label = total_distance_to_label / len(trainloader)  # Calculate average distance to label
-        avg_cross_entropy_loss = total_cross_entropy_loss / len(trainloader)  # Calculate average cross entropy loss
+            accuracy = correct_predictions / total_predictions  # Calculate accuracy
+            avg_distance_to_label = total_distance_to_label / len(trainloader)  # Calculate average distance to label
+            avg_cross_entropy_loss = running_loss / len(trainloader)  # Calculate average cross entropy loss
 
-        # Log loss to TensorBoard
-        self.writer.add_scalar('Cross Entropy Loss/ train', avg_cross_entropy_loss, self.batches)
-        self.writer.add_scalar('Custom Entropy Loss/ train', avg_custom_loss, self.batches)
-        self.writer.add_scalar('Accuracy/ train', accuracy, self.batches)
-        self.writer.add_scalar('Distance/ train', avg_distance_to_label * 2, self.batches)
+            # Log loss to TensorBoard
+            self.writer.add_scalar('Cross Entropy Loss/ train', avg_cross_entropy_loss, self.batches)
+            self.writer.add_scalar('Accuracy/ train', accuracy, self.batches)
+            self.writer.add_scalar('MAE/ train', avg_distance_to_label * 2, self.batches)
 
         return avg_custom_loss
 
     def update(self, image, delta):
+        image = np.nan_to_num(image, nan=0.0)
+        image[np.isinf(image)] = 0.0
         # train one batch at a time
         self.model.train()
         delta = delta / 2
@@ -232,6 +220,8 @@ class CNNTrainer:
         self.losses.append(loss)
 
     def validate(self, image, delta):
+        image = np.nan_to_num(image, nan=0.0)
+        image[np.isinf(image)] = 0.0
         self.model.eval()
         delta = delta / 2
         val_loss = 0.0
@@ -246,8 +236,12 @@ class CNNTrainer:
         with torch.no_grad():
             for i, val_data in enumerate(validation_loader, 0):
                 inputs, labels = val_data
+                inputs[torch.isnan(inputs)] = 0
+                inputs[torch.isinf(inputs)] = 0
                 outputs = self.model(inputs)
-                loss = self.criterion(outputs, labels.squeeze().long())
+                outputs[torch.isnan(outputs)] = 0
+                outputs[torch.isinf(outputs)] = 0
+                loss = self.criterion(outputs.squeeze(), labels.squeeze().long())
                 val_loss += loss.item()
                 cross_entropy_loss += self.cross_entropy_criterion(outputs.squeeze(), labels.squeeze().long())
                 # Calculate accuracy
@@ -257,15 +251,15 @@ class CNNTrainer:
                 # Calculate the distance between the predicted and true labels
                 total_distance_to_label = torch.abs(predicted_labels - labels.squeeze())
 
-        accuracy = correct_predictions / total_predictions  # Calculate accuracy
-        avg_distance_to_label = total_distance_to_label / len(validation_loader)  # Calculate average distance to label
-        avg_cross_entropy_loss = cross_entropy_loss / len(validation_loader)
-        avg_custom_loss = val_loss / len(validation_loader)
+        self.validation_acc.append(correct_predictions / total_predictions)  # Calculate accuracy
+        self.validation_mae.append(total_distance_to_label * 2 / len(validation_loader))  # Calculate average distance to label
+        self.validation_ce.append(cross_entropy_loss / len(validation_loader))
 
-        self.writer.add_scalar('Cross Entropy Loss/ validation', avg_cross_entropy_loss, self.batches)
-        self.writer.add_scalar('Custom Entropy Loss/ validation', avg_custom_loss, self.batches)
-        self.writer.add_scalar('Accuracy/ validation', accuracy, self.batches)
-        self.writer.add_scalar('Distance/ validation', avg_distance_to_label * 2, self.batches)
+    def log_validation(self):
+        print("Logs validation")
+        self.writer.add_scalar('Cross Entropy Loss/ validation', sum(self.validation_ce)/len(self.validation_ce), self.batches)
+        self.writer.add_scalar('Accuracy/ validation', sum(self.validation_acc)/len(self.validation_acc), self.batches)
+        self.writer.add_scalar('MAE/ validation', sum(self.validation_mae)/len(self.validation_mae), self.batches)
 
     def plot_results(self):
         # Plot loss over epochs
@@ -282,5 +276,5 @@ class CNNTrainer:
             os.makedirs(path)
         # save model
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        model_path = 'models/interactive_model_{}.pth'.format(timestamp, self.batches)
+        model_path = 'models/interactive_model_classification{}.pth'.format(timestamp, self.batches)
         torch.save(self.model.state_dict(), model_path)

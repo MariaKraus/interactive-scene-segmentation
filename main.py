@@ -63,7 +63,7 @@ def main(directory: str, selec_t: str):
             training_set.append(curr_img)
             # save the image and the labels
             cv2.imwrite(os.path.join(os.getcwd() + "/labeled_images/" + curr_img.file_name), curr_img.image)
-            write_number_to_file('label.txt', curr_img.file_name, curr_img.model_parameters[0])
+            write_number_to_file('train/coco/label.txt', curr_img.file_name, curr_img.model_parameters[0])
             try:
                 print(len(images), " images remaining")
                 curr_img = images.pop(0)
@@ -116,8 +116,7 @@ def main(directory: str, selec_t: str):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Interactive Scene Segmentation")
-    parser.add_argument("--dir", type=str, default=os.getcwd() + "/train/hamburg/hamburg_images",
-                        help="The directory with the training images")
+    parser.add_argument("--dir", type=str, default=os.getcwd() + "/train/coco/test2014",                       help="The directory with the training images")
     parser.add_argument("--interaction", type=str, default="point",
                         help="The interaction type: point, area or polygon")
 
