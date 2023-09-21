@@ -6,9 +6,20 @@ from ImageContainer import ImageContainer
 drawing = False
 
 
-# Mouse callback function
-# Mouse callback function
 def mouse_callback(event, x, y, flags, param):
+    """
+        Callback function to handle mouse events.
+
+        Parameters:
+            :param event: The type of mouse event.
+            :param x: The x-coordinate of the mouse event.
+            :param y: The y-coordinate of the mouse event.
+            :param flags: Additional flags for the mouse event.
+            :param param: Tuple containing the selection type and selected points.
+
+        Returns:
+            None
+    """
     (selection_type, selected_points) = param
     global drawing
 
@@ -38,7 +49,6 @@ def mouse_callback(event, x, y, flags, param):
             selected_points.append(new_point)
         if event == cv2.EVENT_RBUTTONDOWN:
             selected_points.pop()
-
 
 
 def keyboard_callback(event, param):
@@ -202,6 +212,18 @@ def remove_mask(mask, selected_masks):
 
 
 def select_masks(x, y, masks, selected_masks):
+    """
+        Select masks based on the given coordinates (x, y).
+
+        Parameters:
+            :param x: The x-coordinate.
+            :param y: The y-coordinate.
+            :param masks: List of masks to select from.
+            :param selected_masks: List of selected masks.
+
+        Returns:
+            :return list: Updated list of selected masks.
+        """
     for mask in masks:
         if mask['segmentation'][y][x] == 1:
             if is_dictionary_in_list(mask, selected_masks):
