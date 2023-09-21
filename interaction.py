@@ -29,8 +29,6 @@ def mouse_callback(event, x, y, flags, param):
                 drawing = False
         if drawing is True:
             selected_points.append((x, y))
-
-
     elif selection_type == "polygon":
         if event == cv2.EVENT_LBUTTONDOWN:
             if len(selected_points) > 2 and np.linalg.norm(np.array(selected_points[0]) - np.array((x, y))) < 25:

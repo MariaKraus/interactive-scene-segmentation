@@ -39,12 +39,16 @@ class CNNClassification(nn.Module):
 
     # hook for the gradients of the activations
     def activations_hook(self, grad):
+        """
+        Activation hook for the gradients, needed for the heatmap
+        :param grad: the gradients
+        :return: None
+        """
         self.gradients = grad
 
     def forward(self, x):
         x = self.features_conv(x)
         # register the hook
-
         if self.cam:
             h = x.register_hook(self.activations_hook)
 
@@ -71,6 +75,9 @@ class CNNClassification(nn.Module):
 
 
 class ImageDataset(data.Dataset):
+    """
+    Dataset for the images
+    """
 
     def __init__(self, transform=None):
         self.data = []
@@ -88,10 +95,18 @@ class ImageDataset(data.Dataset):
         return self.data[index]
 
     def add_image(self, image, delta):
+        """
+        Add an image to the dataset
+        :param image: the image
+        :param delta: the label
+        :return: none
+        """
         self.data.append((self.transform(image), np.float32(delta)))
 
 class CNNTrainer:
-
+    """
+    Class for training the CNN
+    """
     def __init__(self):
         self.batches = 0
         self.validation_ce = []
@@ -108,14 +123,19 @@ class CNNTrainer:
         self.visualize_iteration = 50
 
     def train_one_batch(self, trainloader):
+        """
+        Train one batch of the dataset (batch size = 1)
+        :param trainloader: load image
+        :return: none
+        """
         running_loss = 0.0
         correct_predictions = 0  # Counter for correct predictions
         total_predictions = 1  # Counter for total predictions
         total_distance_to_label = 0
-        total_cross_entropy_loss = 0
         avg_custom_loss = 1
         visualize = self.batches % self.visualize_iteration == 0
 
+        # Train one batch
         for i, batch in enumerate(trainloader, 0):
             inputs, labels = batch
             inputs[torch.isnan(inputs)] = 0
@@ -202,11 +222,17 @@ class CNNTrainer:
             # Log loss to TensorBoard
             self.writer.add_scalar('Cross Entropy Loss/ train', avg_cross_entropy_loss, self.batches)
             self.writer.add_scalar('Accuracy/ train', accuracy, self.batches)
-            self.writer.add_scalar('MAE/ train', avg_distance_to_label * 2, self.batches)
+            self.writer.add_scalar('MAE Loss/ train', avg_distance_to_label * 2, self.batches)
 
         return avg_custom_loss
 
     def update(self, image, delta):
+        """
+        Update the model with one batch
+        :param image: the image
+        :param delta: the label
+        :return: none
+        """
         image = np.nan_to_num(image, nan=0.0)
         image[np.isinf(image)] = 0.0
         # train one batch at a time
@@ -215,11 +241,19 @@ class CNNTrainer:
         self.batches += 1
         dataset = ImageDataset()
         dataset.add_image(image, delta)
+        # intialize the dataloader
         trainloader = data.DataLoader(dataset, batch_size=1, num_workers=1)
         loss = self.train_one_batch(trainloader)
+        # collect all losses
         self.losses.append(loss)
 
     def validate(self, image, delta):
+        """
+        Validate the model
+        :param image: the image
+        :param delta: the label
+        :return: none
+        """
         image = np.nan_to_num(image, nan=0.0)
         image[np.isinf(image)] = 0.0
         self.model.eval()
@@ -233,6 +267,7 @@ class CNNTrainer:
         validation_set.add_image(image, delta)
         validation_loader = data.DataLoader(validation_set, batch_size=1, num_workers=1)
 
+        # no gradient calculation
         with torch.no_grad():
             for i, val_data in enumerate(validation_loader, 0):
                 inputs, labels = val_data
@@ -243,7 +278,6 @@ class CNNTrainer:
                 outputs[torch.isinf(outputs)] = 0
                 loss = self.criterion(outputs.squeeze(), labels.squeeze().long())
                 val_loss += loss.item()
-                cross_entropy_loss += self.cross_entropy_criterion(outputs.squeeze(), labels.squeeze().long())
                 # Calculate accuracy
                 predicted_labels = outputs.argmax(dim=1)  # Get the predicted class labels
                 correct_predictions += (predicted_labels == labels).sum().item()
@@ -251,17 +285,26 @@ class CNNTrainer:
                 # Calculate the distance between the predicted and true labels
                 total_distance_to_label = torch.abs(predicted_labels - labels.squeeze())
 
+        # collect all losses
         self.validation_acc.append(correct_predictions / total_predictions)  # Calculate accuracy
         self.validation_mae.append(total_distance_to_label * 2 / len(validation_loader))  # Calculate average distance to label
-        self.validation_ce.append(cross_entropy_loss / len(validation_loader))
+        self.validation_ce.append(val_loss / len(validation_loader))
 
     def log_validation(self):
+        """
+        Log the validation results to TensorBoard
+        :return: none
+        """
         print("Logs validation")
         self.writer.add_scalar('Cross Entropy Loss/ validation', sum(self.validation_ce)/len(self.validation_ce), self.batches)
         self.writer.add_scalar('Accuracy/ validation', sum(self.validation_acc)/len(self.validation_acc), self.batches)
-        self.writer.add_scalar('MAE/ validation', sum(self.validation_mae)/len(self.validation_mae), self.batches)
+        self.writer.add_scalar('Avg MAE Loss/ validation', sum(self.validation_mae)/len(self.validation_mae), self.batches)
 
     def plot_results(self):
+        """
+        Plot all the losses
+        :return: none
+        """
         # Plot loss over epochs
         plt.figure(figsize=(10, 5))
         plt.plot(self.losses, label='Loss')
@@ -271,6 +314,10 @@ class CNNTrainer:
         plt.legend()
 
     def save_model(self):
+        """
+        Save the model
+        :return: none
+        """
         path = os.getcwd() + '/models'
         if not os.path.exists(path):
             os.makedirs(path)

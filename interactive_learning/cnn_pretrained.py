@@ -30,7 +30,9 @@ class CNNPretrained(nn.Module):
 
 
 class ImageDataset(data.Dataset):
-
+    """
+    Dataset class for the images
+    """
     def __init__(self, transform=None):
         self.data = []
         # normalize the images to imagenet mean and std
@@ -47,11 +49,19 @@ class ImageDataset(data.Dataset):
         return self.data[index]
 
     def add_image(self, image, delta):
+        """
+        add image, resize and add normalization
+        :param image: the image to add
+        :param delta: the label
+        :return: none
+        """
         self.data.append((self.transform(image), np.float32(delta)))
 
 
 class CNNTrainer:
-
+    """
+    Class for training the CNN
+    """
     def __init__(self):
         self.batches = 0
         self.validation_mse = []
@@ -67,12 +77,18 @@ class CNNTrainer:
         self.visualize_iteration = 50
 
     def train_one_batch(self, trainloader):
+        """
+        Train one batch
+        :param trainloader: the trainloader
+        :return: none
+        """
         running_loss = 0.0
         last_loss = 0.0
         mean_absolute_error = 0.0
         total_distance_to_label = 0.0
         visualize = self.batches % self.visualize_iteration == 0
 
+        # Iterate over data.
         for i, batch in enumerate(trainloader, 0):
             inputs, labels = batch
 
@@ -128,11 +144,15 @@ class CNNTrainer:
         # Log loss to TensorBoard
         self.writer.add_scalar('MSE Loss/ train', avg_loss, self.batches)
         self.writer.add_scalar('MAE Loss/ train', avg_absolute_error, self.batches)
-
-
         return avg_loss
 
     def update(self, image, delta):
+        """
+        Update the model with one image
+        :param image: an image
+        :param delta: the label
+        :return: none
+        """
         image = np.nan_to_num(image, nan=0.0)
         image[np.isinf(image)] = 0.0
         self.model.train()
@@ -140,11 +160,19 @@ class CNNTrainer:
         self.batches += 1
         dataset = ImageDataset()
         dataset.add_image(image, delta)
+        # initialize the dataloader
         trainloader = data.DataLoader(dataset, batch_size=1, num_workers=1)
         loss = self.train_one_batch(trainloader)
+        # save the loss
         self.losses.append(loss)
 
     def validate(self, image, delta):
+        """
+        Validate the model with one image
+        :param image: the image
+        :param delta: the label
+        :return: none
+        """
         image = np.nan_to_num(image, nan=0.0)
         image[np.isinf(image)] = 0.0
         self.model.eval()
@@ -154,6 +182,8 @@ class CNNTrainer:
         validation_set = ImageDataset()
         validation_set.add_image(image, delta)
         validation_loader = data.DataLoader(validation_set, batch_size=1, num_workers=1)
+
+        # Iterate over data, don't calculate gradients
         with torch.no_grad():
             for i, val_data in enumerate(validation_loader, 0):
                 inputs, labels = val_data
@@ -170,6 +200,10 @@ class CNNTrainer:
         self.validation_mae.append(mean_absolute_error / len(validation_loader))
 
     def log_validation(self):
+        """
+        Log the validation results
+        :return: none
+        """
         print("Logs validation")
         self.writer.add_scalar('Avg MSE Loss/ validation', sum(self.validation_mse) / len(self.validation_mse), self.batches)
         self.writer.add_scalar('Avg MAE Loss/ validation', sum(self.validation_mae) / len(self.validation_mae), self.batches)
@@ -177,6 +211,10 @@ class CNNTrainer:
         self.validation_mae = []
 
     def plot_results(self):
+        """
+        Plot the losses
+        :return: none
+        """
         # Plot loss over epochs
         plt.figure(figsize=(10, 5))
         plt.plot(self.losses, label='Loss')
@@ -186,6 +224,10 @@ class CNNTrainer:
         plt.legend()
 
     def save_model(self):
+        """
+        Save the model
+        :return: none
+        """
         path = os.getcwd() + '/models'
         if not os.path.exists(path):
             os.makedirs(path)

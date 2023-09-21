@@ -87,12 +87,13 @@ def main(directory: str, selec_t: str):
                 curr_img.set_selected_masks(select_masks(curr_img.selected_points[len(curr_img.selected_points) - 1][0],
                                                          curr_img.selected_points[len(curr_img.selected_points) - 1][1],
                                                          curr_img.masks, curr_img.selected_masks))
-
+        # draw the user selections on the canvas
         if curr_img.selection_type == "polygon":
             for i in range(len(curr_img.selected_points) - 1):
                 cv2.line(temp_image, curr_img.selected_points[i],
                          curr_img.selected_points[i + 1], (0, 255, 0), 2)
 
+        # draw the user selections on the canvas
         if (curr_img.selection_type == "area") & (len(curr_img.selected_points) > 1):
             cv2.rectangle(temp_image, curr_img.selected_points[0],
                           curr_img.selected_points[len(curr_img.selected_points) - 1],
@@ -115,6 +116,9 @@ def main(directory: str, selec_t: str):
 
 
 if __name__ == "__main__":
+    """
+    Train the model, adjust the following parameters as needed
+    """
     parser = argparse.ArgumentParser(description="Interactive Scene Segmentation")
     parser.add_argument("--dir", type=str, default=os.getcwd() + "/train/coco/test2014",                       help="The directory with the training images")
     parser.add_argument("--interaction", type=str, default="point",
