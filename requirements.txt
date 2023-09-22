@@ -1,0 +1,16 @@
+google-auth>=2.22.0
+google-auth-oauthlib>=1.0.0
+jupyter>=1.0.0
+matplotlib>=3.7.1
+numpy
+opencv-python>=4.7.0.72
+pandas>=2.1.0
+scikit-learn
+scipy>=1.9.3
+segment-anything==1.0
+sklearn>=0.0.post7
+tensorboard>=2.13.0
+torch>=2.0.1
+torchsummary>=1.5.1
+torchvision>=0.15.2
+tqdm
