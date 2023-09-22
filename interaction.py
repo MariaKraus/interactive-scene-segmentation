@@ -1,18 +1,31 @@
 import os
 import cv2
 import numpy as np
+from ImageContainer import ImageContainer
 
 drawing = False
 
-# Mouse callback function
+
 def mouse_callback(event, x, y, flags, param):
+    """
+        Callback function to handle mouse events.
+
+        Parameters:
+            :param event: The type of mouse event.
+            :param x: The x-coordinate of the mouse event.
+            :param y: The y-coordinate of the mouse event.
+            :param flags: Additional flags for the mouse event.
+            :param param: Tuple containing the selection type and selected points.
+
+        Returns:
+            None
+    """
     (selection_type, selected_points) = param
     global drawing
 
     if selection_type == "point":
         if event == cv2.EVENT_LBUTTONDOWN:
             selected_points.append((x, y))
-            return selected_points
         if event == cv2.EVENT_RBUTTONDOWN:
             selected_points.pop()
 
@@ -21,16 +34,12 @@ def mouse_callback(event, x, y, flags, param):
             selected_points.clear()
             drawing = True
             selected_points.append((x, y))
-            return selected_points
         if event == cv2.EVENT_LBUTTONUP:
             if drawing is True:
                 selected_points.append((x, y))
                 drawing = False
-                return selected_points
         if drawing is True:
             selected_points.append((x, y))
-            return selected_points
-
     elif selection_type == "polygon":
         if event == cv2.EVENT_LBUTTONDOWN:
             if len(selected_points) > 2 and np.linalg.norm(np.array(selected_points[0]) - np.array((x, y))) < 25:
@@ -41,19 +50,14 @@ def mouse_callback(event, x, y, flags, param):
         if event == cv2.EVENT_RBUTTONDOWN:
             selected_points.pop()
 
-def write_number_to_file(filename, number, name):
-    with open(filename, 'a') as file:
-        file.write(name + "," + str(number) + "\n")
 
 def keyboard_callback(event, param):
     """
     Method to handle keyboard events
-    :param event: The keyboard event (pressed key)
-    :param param: param = sam, base_image, masked_image, masks, selection_type, selected_points, selected_masks, interactive_trainer
-    :return: param = sam, base_image, masked_image, masks, selection_type, selected_points, selected_masks, interactive_trainer
+    :param event: the event that was triggered
+    :param param: the parameters that were passed to the callback
     """
-    (model, base_image, _, _, _, _, _, model_parameters, interactive_trainer, name) = param
-    param = list(param)
+    (model, curr_img, new) = param
 
     if event == 13:  # Check if the key is the "Enter" key (key code 13)
         print("pressed Enter")
@@ -64,86 +68,87 @@ def keyboard_callback(event, param):
 
     if event == 49:  # if 1 was pressed
         print("point selection: Select masks you want to resegment")
-        param[4] = "point"
+        curr_img.selection_type = "point"
         # empty the selected points
-        param[5].clear()
+        curr_img.set_selected_points([])
         # clear the selected masks
-        param[6].clear()
+        curr_img.set_selected_masks([])
 
     if event == 50:  # if 2 was pressed
         print("area selection: Select an area that you want to re-segment "
               "by clicking and dragging the mouse over the picture.")
-        param[4] = "area"
+        curr_img.selection_type = "area"
         # empty the selected points
-        param[5].clear()
+        curr_img.set_selected_points([])
         # clear the selected masks
-        param[6].clear()
+        curr_img.set_selected_masks([])
 
     if event == 51:  # if 3 was pressed
         print("Press Left Mouse Button to add a point. Press Right Mouse Button to remove a point.")
-        param[4] = "polygon"
+        curr_img.selection_type = "polygon"
         # empty the selected points
-        param[5].clear()
+        curr_img.set_selected_points([])
         # clear the selected masks
-        param[6].clear()
+        curr_img.set_selected_masks([])
 
     if event == 100:  # d = arrow
         print("New image")
-        param[1] = None
-
-        points_per_side, _, _ = model.parameters
-        image_resized = cv2.resize(base_image, (100, 100))
-        # cv2.imwrite("segmentation_image.png", base_image)
-        write_number_to_file('label_hamburg.txt', points_per_side, name)
-        interactive_trainer.update(image_resized, points_per_side)
+        new = True
 
     if event == 119:  # w = arrow up, segment finer
-        selected_area_image = get_selected_area_pixels(param)
+        selected_area_image = get_selected_area_pixels(curr_img)
         # if an area was selected return new masks
         if len(selected_area_image) != 0:
-            masks, model_parameters = model.segment_finer(selected_area_image, model_parameters)
+            masks, model_parameters = model.segment_finer(selected_area_image)
             masked_image = model.show_masks(selected_area_image, masks)
-            param[1] = selected_area_image
-            param[2] = masked_image
-            param[3] = masks
+            curr_img.set_image(selected_area_image)
+            curr_img.set_file_name(curr_img.file_name)
+            curr_img.set_masked_image(masked_image)
+            curr_img.set_masks(masks)
+            curr_img.set_model_parameters(model_parameters)
             # empty the selected points
-            param[5].clear()
+            curr_img.set_selected_points([])
             # clear the selected masks
-            param[6].clear()
-            param[7] = model_parameters
+            curr_img.set_selected_masks([])
 
     if event == 115:  # s = arrow down, segment coarser
-        selected_area_image = get_selected_area_pixels(param)
+        selected_area_image = get_selected_area_pixels(curr_img)
         # if an area was selected return new masks
         if len(selected_area_image) != 0:
-            masks, model_parameters = model.segment_coarser(selected_area_image, model_parameters)
+            masks, model_parameters = model.segment_coarser(selected_area_image)
             masked_image = model.show_masks(selected_area_image, masks)
-            param[1] = selected_area_image
-            param[2] = masked_image
-            param[3] = masks
+            curr_img.set_image(selected_area_image)
+            curr_img.set_file_name(curr_img.file_name)
+            curr_img.set_masked_image(masked_image)
+            curr_img.set_masks(masks)
+            curr_img.set_model_parameters(model_parameters)
             # empty the selected points
-            param[5].clear()
+            curr_img.set_selected_points([])
             # clear the selected masks
-            param[6].clear()
-            param[7] = model_parameters
+            curr_img.set_selected_masks([])
 
-    return param
+    return model, curr_img, new
 
 
 # Function to handle keyboard events
-def get_selected_area_pixels(param):
-    _, base_image, _, _, selection_type, selected_points, selected_masks, _, _, _ = param
-    selected_area = base_image.copy()
+def get_selected_area_pixels(curr_img):
+    selected_area = curr_img.image.copy()
     bounding_box = []
 
     # if no region was specified, return the whole image
-    if not selected_points:
+    if not curr_img.selected_points:
         print("Whole image selected for resegmentation")
         return selected_area
 
-    if selection_type == "point":
+    if curr_img.selection_type == "point":
         combined_masks = np.zeros(selected_area.shape)
-        for mask in selected_masks:
+
+        # if no region was specified, return the whole image
+        if not curr_img.selected_masks:
+            print("No masks was selected, whole image selected for resegmentation")
+            return selected_area
+
+        for mask in curr_img.selected_masks:
             converted_mask = np.array(mask['segmentation'], dtype=np.uint8)
             converted_mask = np.repeat(converted_mask[:, :, np.newaxis], 3, axis=2)
             combined_masks += converted_mask
@@ -156,21 +161,21 @@ def get_selected_area_pixels(param):
         bottom_right = non_black_indices.max(axis=0)
         bounding_box = [[top_left[1], top_left[0]], [bottom_right[1], bottom_right[0]]]
 
-    if selection_type == "area":
-        start_point = selected_points[0]
-        end_point = selected_points[-1]
+    if curr_img.selection_type == "area":
+        start_point = curr_img.selected_points[0]
+        end_point = curr_img.selected_points[-1]
         # if only one point was selected return the whole image
         if start_point == end_point:
             print("Please select a complete area for resegmentation")
             return []
         bounding_box = [start_point, end_point]
 
-    if selection_type == "polygon":
-        polygon_points = np.array(selected_points)
+    if curr_img.selection_type == "polygon":
+        polygon_points = np.array(curr_img.selected_points)
         if (polygon_points[0][0] != polygon_points[-1][0]) | (polygon_points[0][1] != polygon_points[-1][1]):
             print("Please selected a closed area for resegmentation")
             return []
-        mask = np.zeros((base_image.shape[0], base_image.shape[1], 3), dtype=np.uint8)
+        mask = np.zeros((curr_img.image.shape[0], curr_img.image.shape[1], 3), dtype=np.uint8)
         cv2.fillPoly(mask, [polygon_points], [1, 1, 1])
         selected_area = np.where(mask > 0, selected_area, [0, 0, 0])
         bounding_box = [np.min(polygon_points, axis=0), np.max(polygon_points, axis=0)]
@@ -207,6 +212,18 @@ def remove_mask(mask, selected_masks):
 
 
 def select_masks(x, y, masks, selected_masks):
+    """
+        Select masks based on the given coordinates (x, y).
+
+        Parameters:
+            :param x: The x-coordinate.
+            :param y: The y-coordinate.
+            :param masks: List of masks to select from.
+            :param selected_masks: List of selected masks.
+
+        Returns:
+            :return list: Updated list of selected masks.
+        """
     for mask in masks:
         if mask['segmentation'][y][x] == 1:
             if is_dictionary_in_list(mask, selected_masks):
@@ -221,18 +238,3 @@ def select_masks(x, y, masks, selected_masks):
                 selected_masks.append(selected_mask)
             break
     return selected_masks
-
-
-def load_images(directory: str):
-    # Read image from user input
-    directory_path = ""
-    images = []
-    file_names = []
-    # directory exists
-    while not images:
-        for filename in sorted(os.listdir(directory)):
-            img = cv2.imread(os.path.join(directory, filename))
-            file_names.append(filename)
-            if img is not None:
-                images.append(img)
-    return images, file_names

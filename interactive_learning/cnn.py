@@ -1,5 +1,7 @@
 import os
 from datetime import datetime
+
+import cv2
 import numpy as np
 import torch
 import torch.nn as nn
@@ -28,7 +30,7 @@ class CNN(nn.Module):
         # Fully connected layers for regression
         self.fc_layers = nn.Sequential(
             # 25 * 25 is the number of pixels in the image after 2 pooling layers
-            nn.Linear(in_features=16 * 25 * 25, out_features=4),
+            nn.Linear(in_features=16 * int(220/4) * int(220/4), out_features=4),
             nn.ReLU(),
             nn.Linear(4, 4),
         )
@@ -47,12 +49,15 @@ class CNN(nn.Module):
 
 
 class ImageDataset(data.Dataset):
+    """
+    Dataset class for images
+    """
 
     def __init__(self, transform=None):
-        self.data = []  # TODO: change to dict where key is path to image and value is delta
+        self.data = []
         self.transform = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Resize((100, 100), antialias=None),  # Transformation for model that was trained on ImageNet
+            transforms.Resize((220, 220), antialias=None),  # Transformation for model that was trained on ImageNet
         ])
 
     def __len__(self):
@@ -62,14 +67,24 @@ class ImageDataset(data.Dataset):
         return self.data[index]
 
     def add_image(self, image, delta):
+        """
+        Add an image to the dataset, and resizes it
+        :param image: the image to add
+        :param delta: the label of the image
+        :return: none
+        """
         self.data.append((self.transform(image), np.float32(delta)))
 
 
 
 class CNNTrainer:
-
+    """
+    Class for training the CNN
+    """
     def __init__(self):
         self.batches = 0
+        self.validation_mse = []
+        self.validation_mae = []
         self.model = CNN()
         # optimizer
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=0.001, momentum=0.9)
@@ -78,16 +93,27 @@ class CNNTrainer:
         self.losses = []
         # Initialize TensorBoard writer
         self.writer = SummaryWriter()
-        self.visualize_iteration = 20
+        #
+        self.visualize_iteration = 500
 
     def train_one_batch(self, trainloader):
+        """
+        Train one batch (batch size is 1 = stochastic gradient descent)
+        :param trainloader: the training data
+        :return: the average loss
+        """
         running_loss = 0.0
         last_loss = 0.0
         mean_absolute_error = 0.0
+        total_distance_to_label = 0.0
         visualize = self.batches % self.visualize_iteration == 0
 
+        # iterate through the trainloader
         for i, batch in enumerate(trainloader, 0):
             inputs, labels = batch
+            # check for invalid values in the input
+            inputs[torch.isnan(inputs)] = 0
+            inputs[torch.isinf(inputs)] = 0
 
             # Enable gradient calculation for the input image
             if visualize:
@@ -95,38 +121,68 @@ class CNNTrainer:
 
             self.optimizer.zero_grad()
             outputs = self.model(inputs)
+            # replace invalid values in the output
+            outputs[torch.isnan(outputs)] = 0
+            outputs[torch.isinf(outputs)] = 0
             loss = self.criterion(outputs.squeeze(), labels.squeeze())
             mean_absolute_error += self.mae(outputs.squeeze(), labels.squeeze()).item()
+            total_distance_to_label += torch.abs(outputs.squeeze() - labels.squeeze())
             loss.backward()
 
-            # Visualize gradients
+            # Visualize gradients with heatmaps
             if visualize:
                 gradients = inputs.grad
                 # Plot the magnitude of gradients as a heatmap
                 gradient_magnitude = gradients.norm(dim=1, keepdim=True)  # Calculate gradient magnitude
-                heatmap = gradient_magnitude[0].cpu().detach().numpy()  # Convert to numpy array
+                heatmap = gradient_magnitude[0]
+                heatmap = np.maximum(heatmap, 0)
+                # normalize the heatmap
+                heatmap /= torch.max(heatmap)
+                heatmap[torch.isnan(heatmap)] = 0
+                heatmap[torch.isinf(heatmap)] = 0
+                # draw the heatmap
+                heatmap = heatmap.cpu().detach().numpy()
+                heatmap = heatmap.squeeze()
+                # revert the normalization
+                img = inputs
+                img = img.squeeze().cpu().detach().numpy()
+                # transform to rgb image
+                img = np.uint8(255 * img)
+                # convert the heatmap to RGB
+                try:
+                    # The code that generates the warning
+                    heatmap = np.uint8(255 * heatmap)
+                except RuntimeWarning as rw:
+                    # Handle the warning here
+                    print("Caught a RuntimeWarning:", rw)
 
-                # Plot the original input image
-                plt.imshow(transforms.ToPILImage()(inputs[0].cpu().detach()), cmap='gray')
+                    # Get the specific value that triggered the warning
+                    value_causing_warning = rw.args[0]
+                    print("Value causing the warning:", value_causing_warning)
 
-                plt.imshow(heatmap[0], cmap='hot', alpha=0.4, interpolation='nearest')
-                plt.axis('off')
-                # Save the blended image with heatmap overlay
-                plt.savefig(f'result_images/{self.batches}_gradient_image.png')
-                plt.clf()
+                    # Optionally, you can set the problematic values to a specific valid value
+                    heatmap[np.isnan(heatmap)] = 0
+                    heatmap[np.isinf(heatmap)] = 0
+                else:
+                    # Continue with the rest of your code
+                    pass
 
+                heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+                # combine the heatmap with the original image
+                superimposed_img = heatmap * 0.6 + img.transpose(1, 2, 0)
+                # save the image to disk
+                cv2.imwrite(f'result_images/{self.batches}_map.jpg', superimposed_img)
+                cv2.imwrite(f'result_images/{self.batches}_img.jpg', img.transpose(1, 2, 0))
             # clip gradients to prevent exploding gradients
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 10)
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 10) ### change this on
             self.optimizer.step()
 
             running_loss += loss.item()
             last_loss = loss.item()
-            # Log validation loss to TensorBoard
-            self.writer.add_scalar('output/ validation', outputs.squeeze()[0], self.batches)
 
             # Analyze feature maps for a specific input after training
             if visualize:  # To analyze feature maps every 10 batches, adjust as needed
-                self.analyze_feature_maps(inputs[0])
+                # self.analyze_feature_maps(inputs[0])
                 pass
 
         avg_loss = running_loss / len(trainloader)
@@ -134,38 +190,75 @@ class CNNTrainer:
 
         # Log loss to TensorBoard
         self.writer.add_scalar('MSE Loss/ train', avg_loss, self.batches)
-        self.writer.add_scalar('Avg Absolute Error/ train', avg_absolute_error, self.batches)
-
+        self.writer.add_scalar('MAE Loss/ train', avg_absolute_error, self.batches)
         return avg_loss
 
     def update(self, image, delta):
+        """
+        Update the model with a new image
+        :param image: the image
+        :param delta: the label
+        :return: none
+        """
+        image = np.nan_to_num(image, nan=0.0)
+        image[np.isinf(image)] = 0.0
         # train one batch at a time
         self.batches += 1
         dataset = ImageDataset()
         dataset.add_image(image, delta)
+        # batch size is 1, initialize a trainloader
         trainloader = data.DataLoader(dataset, batch_size=1, num_workers=1)
+
         loss = self.train_one_batch(trainloader)
+        # save the loss
         self.losses.append(loss)
 
     def validate(self, image, delta):
+        """
+        Validate the model with a new image
+        :param image: the image
+        :param delta: the label
+        :return: none
+        """
+        image = np.nan_to_num(image, nan=0.0)
+        image[np.isinf(image)] = 0.0
         val_loss = 0.0
         mean_absolute_error = 0.0
         validation_set = ImageDataset()
         validation_set.add_image(image, delta)
         validation_loader = data.DataLoader(validation_set, batch_size=1, num_workers=1)
+        # don't calculate gradients
         with torch.no_grad():
             for i, val_data in enumerate(validation_loader, 0):
                 inputs, labels = val_data
+                inputs[torch.isnan(inputs)] = 0
+                inputs[torch.isinf(inputs)] = 0
                 outputs = self.model(inputs)
+                outputs[torch.isnan(outputs)] = 0
+                outputs[torch.isinf(outputs)] = 0
                 loss = self.criterion(outputs.squeeze(), labels.squeeze())
                 val_loss += loss.item()
                 mean_absolute_error += self.mae(outputs.squeeze(), labels.squeeze()).item()
+        # save the losses
+        self.validation_mse.append(val_loss / len(validation_set))
+        self.validation_mae.append(mean_absolute_error / len(validation_set))
 
-        self.writer.add_scalar('MSE Loss/ validation', val_loss / len(validation_set), self.batches)
-        self.writer.add_scalar('Avg Absolute Error/ valdiation', mean_absolute_error / len(validation_set),
-                               self.batches)
+    def log_validation(self):
+        """
+        log the average validation results to the tensorboard
+        :return: none
+        """
+        print("Logs validation")
+        self.writer.add_scalar('Avg MSE Loss/ validation', sum(self.validation_mse) / len(self.validation_mse), self.batches)
+        self.writer.add_scalar('Avg MAE Loss/ validation', sum(self.validation_mae) / len(self.validation_mae), self.batches)
+        self.validation_mse = []
+        self.validation_mae = []
 
     def plot_results(self):
+        """
+        Plot all losses
+        :return: none
+        """
         # Plot loss over epochs
         plt.figure(figsize=(10, 5))
         plt.plot(self.losses, label='Loss')
@@ -175,6 +268,10 @@ class CNNTrainer:
         plt.legend()
 
     def save_model(self):
+        """
+        Save the model
+        :return: none
+        """
         path = os.getcwd() + '/models'
         if not os.path.exists(path):
             os.makedirs(path)
@@ -184,6 +281,11 @@ class CNNTrainer:
         torch.save(self.model.state_dict(), model_path)
 
     def analyze_feature_maps(self, inputs):
+        """
+        Analyze and save the feature maps of the convolutional layers
+        :param inputs: the input image
+        :return: None
+        """
         # Set the model to evaluation mode
         self.model.eval()
         feature_maps = []

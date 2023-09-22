@@ -12,13 +12,17 @@ import torchvision.transforms as transforms
 
 
 def apply_custom_transform(image):
+    """
+    Apply a random transformation to the image
+    :param image: the image to transform
+    :return: the transformed image
+    """
     transform = transforms.Compose([
         transforms.ToPILImage(),
         transforms.RandomHorizontalFlip(),
         transforms.RandomRotation(15),
         transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.5),
         transforms.RandomGrayscale(),
-        transforms.GaussianBlur(3),
     ])
 
     transformed_image = transform(image)
@@ -26,6 +30,11 @@ def apply_custom_transform(image):
 
 
 def load_images(directory: str):
+    """
+    Load the images from the given directory
+    :param directory: the directory to load the images from
+    :return: a list of images
+    """
     # Read image from user input
     directory_path = ""
     images = []
@@ -39,6 +48,11 @@ def load_images(directory: str):
 
 
 def read_numbers_from_file(filename):
+    """
+    Read the labels from the given file
+    :param filename: the file name
+    :return: a list of labels
+    """
     numbers = []
     with open(filename, 'r') as file:
         for line in file:
@@ -47,14 +61,14 @@ def read_numbers_from_file(filename):
     return numbers
 
 
-def train(image_dir: str, label: str, model: int, augmentations: int, epochs : int):
+def train(image_dir: str, label: str, model: int, augmentations: int, epochs: int):
     """
     Train the model
-    :param epochs:
-    :param augmentations: The number of augmentations to apply to each image
-    :param model: The model to use
-    :param image_dir: The directory with the training images
-    :param label: The directory with the training labels
+    :param image_dir: the directory with the images
+    :param label: the file with the labels
+    :param model: the model to use
+    :param augmentations: the number of augmentations to use
+    :param epochs: the number of epochs to train for
     :return: None
     """
     interactive_trainer = None
@@ -117,20 +131,24 @@ def train(image_dir: str, label: str, model: int, augmentations: int, epochs : i
         # validate at the end of each epoch
         for k in tqdm(range(len(val_data)), desc="validation", unit="image"):
             interactive_trainer.validate(val_data[k], val_labels[k])
+        interactive_trainer.log_validation()
 
     interactive_trainer.plot_results()
     interactive_trainer.save_model()
 
 
 if __name__ == "__main__":
+    """
+    Train the model, adjust the following parameters as needed
+    """
     parser = argparse.ArgumentParser(description="Interactive Scene Segmentation")
-    parser.add_argument("--i_dir", type=str, default=os.getcwd() + "/train/random/random_images/",
+    parser.add_argument("--i_dir", type=str, default=os.getcwd() + "/train/coco/test2014/",
                         help="The directory with the training images")
-    parser.add_argument("--label", type=str, default=os.getcwd() + "/train/random/label.txt",
+    parser.add_argument("--label", type=str, default=os.getcwd() + "/train/coco/label.txt",
                         help="The directory with the training labels")
     parser.add_argument("--model", type=int, default=3,  # 1 = cnn, 2 = vgg16, 3 = classifier
                         help="The model to use for training")
-    parser.add_argument("--augmentations", type=int, default=15,
+    parser.add_argument("--augmentations", type=int, default=0,
                         help="The number of augmentations to use for training")
     parser.add_argument("--epochs", type=int, default=10,
                         help="The number of augmentations to use for training")
