@@ -131,6 +131,10 @@ class CNNTrainer:
 
             # Visualize gradients with heatmaps
             if visualize:
+                # Check if the folder already exists
+                if not os.path.exists(os.path.join(os.getcwd() + "/heatmap/")):
+                    # If it doesn't exist, create the folder
+                    os.makedirs(os.path.join(os.getcwd() + "/heatmap/"))
                 gradients = inputs.grad
                 # Plot the magnitude of gradients as a heatmap
                 gradient_magnitude = gradients.norm(dim=1, keepdim=True)  # Calculate gradient magnitude
@@ -171,8 +175,8 @@ class CNNTrainer:
                 # combine the heatmap with the original image
                 superimposed_img = heatmap * 0.6 + img.transpose(1, 2, 0)
                 # save the image to disk
-                cv2.imwrite(f'result_images/{self.batches}_map.jpg', superimposed_img)
-                cv2.imwrite(f'result_images/{self.batches}_img.jpg', img.transpose(1, 2, 0))
+                cv2.imwrite(f'heatmap/{self.batches}_map.jpg', superimposed_img)
+                cv2.imwrite(f'heatmap/{self.batches}_img.jpg', img.transpose(1, 2, 0))
             # clip gradients to prevent exploding gradients
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 10) ### change this on
             self.optimizer.step()
@@ -281,6 +285,10 @@ class CNNTrainer:
         torch.save(self.model.state_dict(), model_path)
 
     def analyze_feature_maps(self, inputs):
+        # Check if the folder already exists
+        if not os.path.exists(os.path.join(os.getcwd() + "/heatmap/")):
+            # If it doesn't exist, create the folder
+            os.makedirs(os.path.join(os.getcwd() + "/heatmap/"))
         """
         Analyze and save the feature maps of the convolutional layers
         :param inputs: the input image
@@ -321,7 +329,7 @@ class CNNTrainer:
                 ax.imshow(feature_maps0[i], cmap='viridis')
                 ax.set_title(f'Channel {i}')
             ax.axis('off')
-        plt.savefig(f'result_images/{self.batches}_featureMaps0.png')
+        plt.savefig(f'heatmap/{self.batches}_featureMaps0.png')
         plt.clf()
 
         # Plot the feature maps
@@ -339,6 +347,6 @@ class CNNTrainer:
 
         plt.tight_layout()
         # Save the feature map
-        plt.savefig(f'result_images/{self.batches}_featureMaps3.png')
+        plt.savefig(f'heatmap/{self.batches}_featureMaps3.png')
         plt.clf()
         self.model.train()

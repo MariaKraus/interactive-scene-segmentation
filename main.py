@@ -25,9 +25,10 @@ def load_images(directory: str):
     print("Loaded {} images".format(len(images)))
     return images
 
-def main(directory: str, selec_t: str):
+
+def main(directory: str, selec_t: str, model: str):
     # Create the segmentation model
-    sam = SegmentAnything(checkpoint="trained_models/sam_vit_b_01ec64.pth", model_type="vit_b", device="cuda")
+    sam = SegmentAnything(checkpoint=model, model_type="vit_b", device="cuda")
     interactive_trainer = cnn.CNNTrainer()
     # Load the images
     images = load_images(directory)
@@ -63,7 +64,7 @@ def main(directory: str, selec_t: str):
             training_set.append(curr_img)
             # save the image and the labels
             cv2.imwrite(os.path.join(os.getcwd() + "/labeled_images/" + curr_img.file_name), curr_img.image)
-            write_number_to_file('train/coco/label.txt', curr_img.file_name, curr_img.model_parameters[0])
+            write_number_to_file('labeled_images/label.txt', curr_img.file_name, curr_img.model_parameters[0])
             try:
                 print(len(images), " images remaining")
                 curr_img = images.pop(0)
@@ -120,7 +121,9 @@ if __name__ == "__main__":
     Train the model, adjust the following parameters as needed
     """
     parser = argparse.ArgumentParser(description="Interactive Scene Segmentation")
-    parser.add_argument("--dir", type=str, default=os.getcwd() + "/train/coco/test2014",                       help="The directory with the training images")
+    parser.add_argument("--dir", type=str, default=os.getcwd() + "/train/coco/test2014", help="The directory with the training images")
+    parser.add_argument("--model", type=str, default=os.getcwd() + "/trained_models/sam_vit_b_01ec64.pth",
+                        help="Path to the SAM model")
     parser.add_argument("--interaction", type=str, default="point",
                         help="The interaction type: point, area or polygon")
 
@@ -130,4 +133,4 @@ if __name__ == "__main__":
         print("The given directory: ", args.dir, " does not exist.")
         exit(0)
 
-    main(directory=args.dir, selec_t=args.interaction)
+    main(directory=args.dir, selec_t=args.interaction, model=args.model)

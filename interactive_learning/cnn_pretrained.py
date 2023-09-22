@@ -105,6 +105,10 @@ class CNNTrainer:
 
             # Visualize gradients
             if visualize:
+                # Check if the folder already exists
+                if not os.path.exists(os.path.join(os.getcwd() + "/heatmap_regression/")):
+                    # If it doesn't exist, create the folder
+                    os.makedirs(os.path.join(os.getcwd() + "/heatmap_regression/"))
                 gradients = inputs.grad
                 # Plot the magnitude of gradients as a heatmap
                 gradient_magnitude = gradients.norm(dim=1, keepdim=True)  # Calculate gradient magnitude
@@ -130,8 +134,8 @@ class CNNTrainer:
                 # combine the heatmap with the original image
                 superimposed_img = heatmap * 0.6 + img.transpose(1, 2, 0)
                 # save the image to disk
-                cv2.imwrite(f'result_images_pretrained/{self.batches}_map.jpg', superimposed_img)
-                cv2.imwrite(f'result_images_pretrained/{self.batches}_img.jpg', img.transpose(1, 2, 0))
+                cv2.imwrite(f'heatmap_regression/{self.batches}_map.jpg', superimposed_img)
+                cv2.imwrite(f'heatmap_regression/{self.batches}_img.jpg', img.transpose(1, 2, 0))
 
             # clip gradients to prevent exploding gradients
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 10)

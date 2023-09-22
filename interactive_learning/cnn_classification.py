@@ -158,6 +158,10 @@ class CNNTrainer:
             # Visualize gradients
             if visualize:
                 try:
+                    # Check if the folder already exists
+                    if not os.path.exists(os.path.join(os.getcwd() + "/heatmap_classification/")):
+                        # If it doesn't exist, create the folder
+                        os.makedirs(os.path.join(os.getcwd() + "/heatmap_classification/"))
                     # GRAD CAM #
                     self.model.eval()
                     self.model.set_cam(True)
@@ -204,11 +208,11 @@ class CNNTrainer:
                     # combine the heatmap with the original image
                     superimposed_img = heatmap * 0.4 + img.transpose(1, 2, 0)
                     # save the image to disk
-                    cv2.imwrite(f'result_images_classification/{self.batches}_map.jpg', superimposed_img)
+                    cv2.imwrite(f'heatmap_classification/{self.batches}_map.jpg', superimposed_img)
                 except RuntimeWarning as w:
                     print(w)
                     print("Error in heatmap creation")
-                cv2.imwrite(f'result_images_classification/{self.batches}_img.jpg', img.transpose(1, 2, 0))
+                cv2.imwrite(f'heatmap_classification/{self.batches}_img.jpg', img.transpose(1, 2, 0))
 
                 # return into train mode
                 self.model.train()

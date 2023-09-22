@@ -7,28 +7,42 @@ Interactive scene segmentation tool using Segment Anything
 
 - A graphic card that is compatible with cuda, see [compatible graphic cards](https://developer.nvidia.com/cuda-gpus)
 - Anaconda, see [install Anaconda](https://docs.anaconda.com/free/anaconda/install/index.html)
-- Nvidia graphic drivers, see [install Nvidia Graphic Drivers](https://wiki.ubuntuusers.de/Grafikkarten/Nvidia/nvidia/)
 
 ### Set Up
 
 - Download the repository
-- Set up a virtual conda environment with the iss.yaml file:
-    ``conda env create -f iss.yaml``
-- Download a pretrained model from Segment Anything, [vit_h](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth)
+- Do:
 
-    Or its lightweight version: [vit_b](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth)
-- Move the model into the directory `trained_models`
+    ``cd interactive_scene_segmentation``
+
+    ``conda create --name iss python=3.11``
+
+    ``conda activate iss``
+
+    ``pip install -r requirements.txt``
+- Download a pretrained model from Segment Anything, [vit_b](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth)
 
 ## Usage
 
-Run the code by providing a path to the image you want to segment:
-``python main.py --dir directory_with_training_images``
+Run user interface:
+
+``python main.py --dir directory_with_training_images, --model path_to_model``
+
+Run training:
+
+``python train.py``
+
+For adjusting parameters run:
+``python train.py --help``
 
 ### Controls
 - `1/2/3`->  to change the interaction type to "point"/ "area" / "polygon"
 - `w/s` -> to segment finer/coarser
 - `d`-> to save the image and get to the next one
 - `q`-> to quit the program
+
+## User Interface
+![User Interface](user_interface.png)
 
 ## References
 
