@@ -100,23 +100,33 @@ def train(image_dir: str, label: str, model: int, augmentations: int, epochs: in
 
     # Load the training images and augment them
     for i in tqdm(range(len(train_names)), desc="Loading and Augmenting Images", unit="image"):
-        img = cv2.imread(os.path.join(image_dir, train_names[i]))
-        # resize otherwise it takes too long
-        img = cv2.resize(img, (224, 224))
-        train_data.append(img)
-        train_labels.append(train_numbers[i])
-        for j in range(augmentations):
-            img_augmented = apply_custom_transform(img)
-            train_data.append(img_augmented)
+        img = []
+        try:
+            img = cv2.imread(os.path.join(image_dir, train_names[i]))
+        except:
+            continue
+        if img is not None:
+            # resize otherwise it takes too long
+            img = cv2.resize(img, (224, 224))
+            train_data.append(img)
             train_labels.append(train_numbers[i])
+            for j in range(augmentations):
+                img_augmented = apply_custom_transform(img)
+                train_data.append(img_augmented)
+                train_labels.append(train_numbers[i])
 
     # Load the validation images
     for n in tqdm(range(len(val_names)), desc="Loading and Augmenting Images", unit="image"):
-        img = cv2.imread(os.path.join(image_dir, val_names[n]))
-        # resize otherwise it takes too long
-        img = cv2.resize(img, (224, 224))
-        val_data.append(img)
-        val_labels.append(val_numbers[n])
+        img = []
+        try:
+            img = cv2.imread(os.path.join(image_dir, val_names[n]))
+        except:
+            continue
+        if img is not None:
+            # resize otherwise it takes too long
+            img = cv2.resize(img, (224, 224))
+            val_data.append(img)
+            val_labels.append(val_numbers[n])
 
 
     # Train the model for a fixed numer of epochs
@@ -142,9 +152,9 @@ if __name__ == "__main__":
     Train the model, adjust the following parameters as needed
     """
     parser = argparse.ArgumentParser(description="Interactive Scene Segmentation")
-    parser.add_argument("--i_dir", type=str, default=os.getcwd() + "/train/coco/test2014/",
+    parser.add_argument("--i_dir", type=str, default=os.getcwd() + "/labeled_images/",
                         help="The directory with the training images")
-    parser.add_argument("--label", type=str, default=os.getcwd() + "/train/coco/label.txt",
+    parser.add_argument("--label", type=str, default=os.getcwd() + "/labeled_images/label.txt",
                         help="The directory with the training labels")
     parser.add_argument("--model", type=int, default=3,  # 1 = cnn, 2 = vgg16, 3 = classifier
                         help="The model to use for training")

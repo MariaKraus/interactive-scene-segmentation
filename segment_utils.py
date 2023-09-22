@@ -34,7 +34,7 @@ class SegmentAnything:
 
     def segment_image(self, image):
         start_time = time.time()
-        print(" ", self.parameters[0])
+        print("points_per_side ", self.parameters[0])
         # create the masks for the image
         masks = self.mask_generator.generate(image)
         masks = sorted(masks, key=lambda x: x['area'], reverse=False)

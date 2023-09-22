@@ -63,7 +63,7 @@ def main(directory: str, selec_t: str):
             training_set.append(curr_img)
             # save the image and the labels
             cv2.imwrite(os.path.join(os.getcwd() + "/labeled_images/" + curr_img.file_name), curr_img.image)
-            write_number_to_file('train/coco/label.txt', curr_img.file_name, curr_img.model_parameters[0])
+            write_number_to_file('labeled_images/label.txt', curr_img.file_name, curr_img.model_parameters[0])
             try:
                 print(len(images), " images remaining")
                 curr_img = images.pop(0)

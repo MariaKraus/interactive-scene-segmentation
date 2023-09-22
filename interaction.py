@@ -1,7 +1,7 @@
 import os
 import cv2
 import numpy as np
-from ImageContainer import ImageContainer
+from image_container import ImageContainer
 
 drawing = False
 
